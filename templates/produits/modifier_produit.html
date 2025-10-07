@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container">
+  <div class="page-inner">
+    <div class="page-header">
+      <h3 class="fw-bold mb-3">
+        {% if form.instance.pk %}Modifier{% else %}Créer{% endif %} un Produit
+      </h3>
+      <ul class="breadcrumbs mb-3">
+        <li class="nav-home">
+          <a href="{% url 'home' %}"><i class="icon-home"></i></a>
+        </li>
+        <li class="separator"><i class="icon-arrow-right"></i></li>
+        <li class="nav-item">
+          <a href="{% url 'liste_produits' %}">Produits</a>
+        </li>
+        <li class="separator"><i class="icon-arrow-right"></i></li>
+        <li class="nav-item active">
+          {% if form.instance.pk %}Modifier{% else %}Créer{% endif %}
+        </li>
+      </ul>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-8 mx-auto">
+        <div class="card mb-4" style="border: 2px solid #007bff">
+          <div class="card-header text-white fw-bold text-center" style="background-color: #007bff">
+            {% if form.instance.pk %}Modifier Produit{% else %}Nouveau Produit{% endif %}
+          </div>
+          <div class="card-body">
+            
+            <!-- Messages -->
+            {% if messages %}
+            <div class="alert alert-dismissible fade show" role="alert">
+              {% for message in messages %}
+              <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+              {% endfor %}
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            {% endif %}
+
+            <!-- Formulaire -->
+            <form method="POST" enctype="multipart/form-data" class="row g-3">
+              {% csrf_token %}
+
+              <!-- Nom -->
+              <div class="col-md-6 mb-3">
+                <label for="id_nom" class="form-label">Nom du Produit</label>
+                {{ form.nom }}
+                {% if form.nom.errors %}
+                <div class="alert alert-danger mt-2">
+                  {% for error in form.nom.errors %} {{ error }} {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Description -->
+              <div class="col-md-12 mb-3">
+                <label for="id_description" class="form-label">Description</label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                <div class="alert alert-danger mt-2">
+                  {% for error in form.description.errors %} {{ error }} {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Prix -->
+              <div class="col-md-6 mb-3">
+                <label for="id_prix" class="form-label">Prix (DH)</label>
+                {{ form.prix }}
+                {% if form.prix.errors %}
+                <div class="alert alert-danger mt-2">
+                  {% for error in form.prix.errors %} {{ error }} {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Image -->
+              <div class="col-md-6 mb-3">
+                <label for="id_image" class="form-label">Image</label>
+                {{ form.image }}
+                {% if form.image.errors %}
+                <div class="alert alert-danger mt-2">
+                  {% for error in form.image.errors %} {{ error }} {% endfor %}
+                </div>
+                {% endif %}
+                {% if form.instance.pk and form.instance.image %}
+                <div class="mt-2">
+                  <img src="{{ form.instance.image.url }}" alt="{{ form.instance.nom }}" width="120" class="rounded">
+                  <p class="text-muted small">Image actuelle</p>
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Boutons -->
+              <div class="text-center mt-4">
+                <button type="submit" class="btn btn-primary btn-lg">
+                  <i class="bi bi-check-circle"></i> Enregistrer
+                </button>
+                <a href="{% url 'liste_produits' %}" class="btn btn-secondary btn-lg">
+                  <i class="bi bi-arrow-left-circle"></i> Annuler
+                </a>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+    

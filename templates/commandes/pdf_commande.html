@@ -1,0 +1,94 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Bon de commande #{{ commande.id }}</title>
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/vendor/bootstrap/css/bootstrap.min.css' %}"
+    />
+    <style>
+      body {
+        font-family: "DejaVu Sans", sans-serif;
+        font-size: 12px;
+      }
+      .table th {
+        background-color: #34b7f1;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container mt-4">
+      <!-- Titre -->
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h2 class="fw-bold">BON DE COMMANDE</h2>
+          <p><strong>Numéro :</strong> {{ commande.id }}</p>
+          <p>
+            <strong>Date :</strong> {{ commande.date_commande|date:"d/m/Y H:i"
+            }}
+          </p>
+          <p><strong>Statut :</strong> {{ commande.statut }}</p>
+        </div>
+        <div class="text-end">
+          <img
+            src="{% static 'assets/img/logo.png' %}"
+            style="width: 120px"
+            alt="Logo"
+          />
+          <p><strong>Votre Entreprise</strong></p>
+          <p>Adresse</p>
+          <p>Téléphone : +212 620-983-827</p>
+          <p>Email : contact@exemple.com</p>
+        </div>
+      </div>
+
+      <!-- Client -->
+      <h5 class="fw-bold">Informations du client</h5>
+      <p><strong>Nom :</strong> {{ commande.client.nom }}</p>
+      <p><strong>Adresse :</strong> {{ commande.client.adresse }}</p>
+      <p><strong>Téléphone :</strong> {{ commande.client.telephone }}</p>
+      <p><strong>Email :</strong> {{ commande.client.email }}</p>
+
+      <!-- Produits -->
+      <h5 class="fw-bold mt-4">Produits commandés</h5>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>Produit</th>
+            <th>Quantité</th>
+            <th>Prix unitaire</th>
+            <th>Sous-total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in commande.items.all %}
+          <tr>
+            <td>{{ item.produit.nom }}</td>
+            <td class="text-center">{{ item.quantite }}</td>
+            <td class="text-end">{{ item.prix_unitaire|floatformat:2 }} MAD</td>
+            <td class="text-end">{{ item.sous_total|floatformat:2 }} MAD</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- Total -->
+      <div class="row justify-content-end mt-4">
+        <div class="col-md-6">
+          <table class="table table-bordered">
+            <tr>
+              <th>Total commande</th>
+              <td class="text-end fw-bold">
+                {{ commande.total|floatformat:2 }} MAD
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

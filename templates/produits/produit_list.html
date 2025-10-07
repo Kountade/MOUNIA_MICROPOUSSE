@@ -1,0 +1,248 @@
+{% extends "base.html" %} {% load static %} {% block content %}
+<div class="container">
+  <div class="page-inner">
+    <div class="page-header">
+      <h3 class="fw-bold mb-3">Liste des Produits</h3>
+      <ul class="breadcrumbs mb-3">
+        <li class="nav-home">
+          <a href="{% url 'home' %}">
+            <i class="icon-home"></i>
+          </a>
+        </li>
+        <li class="separator">
+          <i class="icon-arrow-right"></i>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'liste_produits' %}">Produits</a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Affichage des messages -->
+    {% if messages %} {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">
+      {{ message }}
+      <button
+        type="button"
+        class="close"
+        data-dismiss="alert"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    {% endfor %} {% endif %}
+
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <div class="d-flex align-items-center">
+              <h4 class="card-title">Liste des Produits</h4>
+
+              <!-- Bouton Ajouter -->
+              <a
+                href="{% url 'ajouter_produit' %}"
+                class="btn btn-outline-primary ms-auto me-2"
+              >
+                <i class="bi bi-plus-square"></i> Ajouter un produit
+              </a>
+
+              <!-- Bouton Exporter Excel -->
+              <a
+                href="{% url 'exporter_produits_excel' %}"
+                class="btn btn-success me-2"
+              >
+                <i class="bi bi-file-earmark-excel"></i> Exporter Excel
+              </a>
+
+              <!-- Bouton Exporter PDF -->
+              <a
+                href="{% url 'exporter_produits_pdf' %}"
+                class="btn btn-danger"
+              >
+                <i class="bi bi-file-earmark-pdf"></i> Exporter PDF
+              </a>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="table-responsive">
+              <table
+                id="produits-table"
+                class="display table table-striped table-hover"
+              >
+                <thead>
+                  <tr>
+                    <th style="width: 120px">Image</th>
+                    <th style="width: 150px">Nom</th>
+                    <th style="width: 300px">Description</th>
+                    <th style="width: 120px">Prix</th>
+                    <th style="width: 150px">Date d'ajout</th>
+                    <th style="width: 200px">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for produit in produits %}
+                  <tr>
+                    <td>
+                      {% if produit.image %}
+                      <img
+                        src="{{ produit.image.url }}"
+                        alt="{{ produit.nom }}"
+                        width="60"
+                        class="img-thumbnail"
+                      />
+                      {% else %}
+                      <span class="text-muted">Aucune image</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ produit.nom }}</td>
+                    <td>{{ produit.description|truncatechars:50 }}</td>
+                    <td>{{ produit.prix }} MAD</td>
+                    <td>{{ produit.date_ajout|date:"d/m/Y" }}</td>
+                    <td>
+                      <div class="d-flex justify-content-center">
+                        <!-- Bouton Détails -->
+                        <a
+                          href="#"
+                          class="btn btn-info btn me-2"
+                          data-toggle="tooltip"
+                          title="Détails"
+                        >
+                          <i class="bi bi-eye"></i>
+                        </a>
+
+                        <!-- Bouton Modifier -->
+                        <a
+                          href="{% url 'modifier_produit' produit.id %}"
+                          class="btn btn-primary btn me-2"
+                          data-toggle="tooltip"
+                          title="Modifier"
+                        >
+                          <i class="bi bi-pencil"></i>
+                        </a>
+
+                        <!-- Bouton Supprimer -->
+                        <button
+                          type="button"
+                          class="btn btn-danger btn"
+                          data-toggle="modal"
+                          data-target="#deleteModal{{ produit.id }}"
+                          title="Supprimer"
+                        >
+                          <i class="bi bi-trash"></i>
+                        </button>
+
+                        <!-- Modal de confirmation pour la suppression -->
+                        <div
+                          class="modal fade"
+                          id="deleteModal{{ produit.id }}"
+                          tabindex="-1"
+                          role="dialog"
+                          aria-labelledby="deleteModalLabel{{ produit.id }}"
+                          aria-hidden="true"
+                        >
+                          <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                              <div class="modal-header">
+                                <h5
+                                  class="modal-title"
+                                  id="deleteModalLabel{{ produit.id }}"
+                                >
+                                  Confirmer la suppression
+                                </h5>
+                                <button
+                                  type="button"
+                                  class="close"
+                                  data-dismiss="modal"
+                                  aria-label="Close"
+                                >
+                                  <span aria-hidden="true">&times;</span>
+                                </button>
+                              </div>
+                              <div class="modal-body">
+                                Êtes-vous sûr de vouloir supprimer le produit
+                                <strong>{{ produit.nom }}</strong> ?
+                              </div>
+                              <div class="modal-footer">
+                                <button
+                                  type="button"
+                                  class="btn btn-secondary"
+                                  data-dismiss="modal"
+                                >
+                                  Annuler
+                                </button>
+                                <form
+                                  method="POST"
+                                  action="{% url 'supprimer_produit' produit.id %}"
+                                >
+                                  {% csrf_token %}
+                                  <button type="submit" class="btn btn-danger">
+                                    Supprimer
+                                  </button>
+                                </form>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Styles CSS -->
+<style>
+  .table-responsive {
+    overflow-x: hidden;
+  }
+  table {
+    width: 100%;
+    table-layout: fixed;
+    white-space: nowrap;
+  }
+  th,
+  td {
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .btn {
+    padding: 0.375rem 0.75rem;
+  }
+</style>
+
+<!-- JS DataTable -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script>
+  $(document).ready(function () {
+    $("#produits-table").DataTable({
+      pageLength: 10,
+      autoWidth: false,
+      responsive: true,
+      scrollX: false,
+      columnDefs: [
+        { width: "120px", targets: 0 },
+        { width: "150px", targets: 1 },
+        { width: "300px", targets: 2 },
+        { width: "120px", targets: 3 },
+        { width: "150px", targets: 4 },
+        { width: "200px", targets: 5 },
+      ],
+    });
+    $('[data-toggle="tooltip"]').tooltip();
+  });
+</script>
+{% endblock content %}

@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+  <div class="page-inner">
+    <div class="page-header">
+      <h3 class="fw-bold mb-3">Liste des Commandes</h3>
+      <ul class="breadcrumbs mb-3">
+        <li class="nav-home">
+          <a href="{% url 'home' %}">
+            <i class="icon-home"></i>
+          </a>
+        </li>
+        <li class="separator">
+          <i class="icon-arrow-right"></i>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'liste_commandes' %}">Commandes</a>
+        </li>
+        {% if request.GET.date %}
+        <li class="separator">
+          <i class="icon-arrow-right"></i>
+        </li>
+        <li class="nav-item">
+          <span>Filtre par jour : {{ request.GET.date }}</span>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <!-- Messages flash -->
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <div class="row mb-3">
+      <!-- Filtre par date -->
+      <div class="col-md-6">
+        <form method="get" action="{% url 'liste_commandes' %}" class="form-inline">
+          <div class="form-group mr-2 mb-2">
+            <label for="date" class="mr-2">Sélectionner une date :</label>
+            <input
+              type="date"
+              name="date"
+              id="date"
+              class="form-control"
+              value="{{ request.GET.date }}"
+            />
+          </div>
+          <button type="submit" class="btn btn-primary mb-2">Filtrer</button>
+          {% if request.GET.date %}
+            <a href="{% url 'liste_commandes' %}" class="btn btn-secondary mb-2 ml-2">Réinitialiser</a>
+          {% endif %}
+        </form>
+      </div>
+
+      <!-- Boutons actions -->
+      <div class="col-md-6 text-right">
+        {% if request.GET.date %}
+          <a
+            href="{% url 'export_commandes_pdf' %}?date={{ request.GET.date }}"
+            class="btn btn-danger"
+          >
+            <i class="bi bi-file-earmark-pdf"></i> Exporter PDF
+          </a>
+        {% endif %}
+        <a href="{% url 'creer_commande' %}" class="btn btn-success ml-2">
+          <i class="bi bi-plus-square"></i> Nouvelle commande
+        </a>
+      </div>
+    </div>
+
+    <!-- Indicateur filtre -->
+    {% if request.GET.date %}
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        Commandes du <strong>{{ request.GET.date }}</strong>
+        <span class="badge bg-primary ml-2">{{ commandes|length }} commande(s)</span>
+      </div>
+    {% endif %}
+
+    <!-- Tableau des commandes -->
+    <div class="card">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table id="commandes-table" class="display table table-striped table-hover">
+            <thead>
+              <tr>
+                <th>N°</th>
+                <th>Client</th>
+                <th>Ville</th>
+                <th>Date et Heure</th>
+                <th>Statut</th>
+                <th>Total (€)</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for commande in commandes %}
+                <tr>
+                  <td>{{ commande.id }}</td>
+                  <td>{{ commande.client.nom }}</td>
+                  <td>
+                    {% if commande.client.ville %}
+                      {{ commande.client.ville }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span title="{{ commande.date_commande|date:'d/m/Y H:i:s' }}">
+                      {{ commande.date_commande|date:"d/m/Y H:i" }}
+                    </span>
+                  </td>
+                  <td>
+                    {% if commande.statut == "En cours" %}
+                      <span class="badge bg-warning text-dark">En cours</span>
+                    {% elif commande.statut == "Validée" %}
+                      <span class="badge bg-info text-white">Validée</span>
+                    {% elif commande.statut == "Livrée" %}
+                      <span class="badge bg-success">Livrée</span>
+                    {% elif commande.statut == "Annulée" %}
+                      <span class="badge bg-danger">Annulée</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ commande.statut }}</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if commande.total %}
+                      {{ commande.total|floatformat:2 }} €
+                    {% else %}
+                      0.00 €
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="btn-group" role="group">
+                      <a href="{% url 'detail_commande' commande.id %}" class="btn btn-sm btn-info" title="Détails">
+                        <i class="bi bi-eye"></i>
+                      </a>
+                      <a href="{% url 'modifier_commande' commande.id %}" class="btn btn-sm btn-primary" title="Modifier">
+                        <i class="bi bi-pencil"></i>
+                      </a>
+                      <form
+                        method="post"
+                        action="{% url 'supprimer_commande' commande.id %}"
+                        class="d-inline"
+                        onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer la commande #{{ commande.id }} ?');"
+                      >
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-danger" title="Supprimer">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="7" class="text-center py-4">
+                    {% if request.GET.date %}
+                      <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                      <p class="mt-2">Aucune commande trouvée pour la date {{ request.GET.date }}</p>
+                    {% else %}
+                      <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                      <p class="mt-2">Aucune commande trouvée</p>
+                      <a href="{% url 'creer_commande' %}" class="btn btn-primary mt-2">
+                        <i class="bi bi-plus-circle"></i> Créer la première commande
+                      </a>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+            {% if commandes %}
+            <tfoot>
+              <tr class="table-active">
+                <td colspan="5" class="text-end fw-bold">Total général :</td>
+                <td class="fw-bold">
+                  {{ total_general|floatformat:2 }} €
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
+            {% endif %}
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JS DataTables -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script>
+  $(document).ready(function () {
+    $("#commandes-table").DataTable({
+      pageLength: 10,
+      autoWidth: false,
+      responsive: true,
+      order: [[3, 'desc']], // Tri par date décroissante par défaut
+      language: {
+        url: "//cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json",
+      },
+      columnDefs: [
+        { orderable: true, targets: [0, 3, 5] }, // Colonnes triables
+        { orderable: false, targets: [1, 2, 4, 6] } // Colonnes non triables
+      ]
+    });
+  });
+</script>
+
+<style>
+  .badge {
+    font-size: 0.75em;
+  }
+  .btn-group .btn {
+    margin-right: 2px;
+  }
+  .btn-group form {
+    display: inline;
+  }
+  .table td {
+    vertical-align: middle;
+  }
+</style>
+{% endblock content %}

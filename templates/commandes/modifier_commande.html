@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<main id="main" class="main">
+  <div class="pagetitle">
+    <h1>Modifier une commande</h1>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}">Accueil</a></li>
+        <li class="breadcrumb-item">Commandes</li>
+        <li class="breadcrumb-item active">Modifier</li>
+      </ol>
+    </nav>
+  </div>
+
+  <section class="section">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">{{ title }}</h5>
+
+            <!-- Messages d'alerte -->
+            {% if messages %}
+            <div class="alert-container">
+              {% for message in messages %}
+              <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="POST" class="row g-3">
+              {% csrf_token %}
+
+              <!-- Client -->
+              <div class="col-12">
+                <label for="client" class="form-label">Client *</label>
+                <select id="client" name="client" class="form-select" required>
+                  <option value="" disabled>-- Sélectionnez un client --</option>
+                  {% for c in clients %}
+                  <option value="{{ c.id }}" {% if c.id == commande.client.id %}selected{% endif %}>
+                    {{ c.nom }} - {{ c.ville }} ({{ c.responsable }})
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Date et heure de commande -->
+              <div class="col-12">
+                <label for="date_commande" class="form-label">Date et heure de commande *</label>
+                <input type="datetime-local" id="date_commande" name="date_commande" class="form-control" required 
+                       value="{{ commande.date_commande|date:'Y-m-d\TH:i' }}">
+                <small class="form-text text-muted">Modifiez la date et l'heure de la commande si nécessaire</small>
+              </div>
+
+              <!-- Produits -->
+              <div class="col-12">
+                <h5 class="card-title">Produits</h5>
+                <table id="produits-table" class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Produit</th>
+                      <th>Quantité</th>
+                      <th>Prix Unitaire</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in commande.items.all %}
+                    <tr>
+                      <td>
+                        <select name="produit[]" class="form-select produit-select" required>
+                          <option value="" disabled>-- Produit --</option>
+                          {% for p in produits %}
+                          <option value="{{ p.id }}" data-prix="{{ p.prix }}" 
+                                  {% if p.id == item.produit.id %}selected{% endif %}>
+                            {{ p.nom }}
+                          </option>
+                          {% endfor %}
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" name="quantite[]" class="form-control" min="1" 
+                               value="{{ item.quantite }}" required />
+                      </td>
+                      <td>
+                        <input type="text" name="prix[]" class="form-control prix-produit" 
+                               value="{{ item.produit.prix }}" readonly />
+                      </td>
+                      <td>
+                        <button type="button" class="btn btn-danger delete-row">Supprimer</button>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Statut -->
+              <div class="col-12">
+                <label for="statut" class="form-label">Statut *</label>
+                <select id="statut" name="statut" class="form-select" required>
+                  <option value="En cours" {% if commande.statut == "En cours" %}selected{% endif %}>En cours</option>
+                  <option value="Validée" {% if commande.statut == "Validée" %}selected{% endif %}>Validée</option>
+                  <option value="Livrée" {% if commande.statut == "Livrée" %}selected{% endif %}>Livrée</option>
+                  <option value="Annulée" {% if commande.statut == "Annulée" %}selected{% endif %}>Annulée</option>
+                </select>
+              </div>
+
+              <div class="text-center">
+                <button type="button" id="add-row" class="btn btn-primary btn-lg">
+                  <i class="bi bi-plus-circle"></i> Ajouter un produit
+                </button>
+                <button type="submit" class="btn btn-success btn-lg">
+                  <i class="bi bi-check-circle"></i> Mettre à jour la commande
+                </button>
+                <a href="{% url 'liste_commandes' %}" class="btn btn-secondary btn-lg">
+                  <i class="bi bi-arrow-left-circle"></i> Retour
+                </a>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script type="text/javascript">
+  document.addEventListener("DOMContentLoaded", function () {
+    var addRowButton = document.getElementById("add-row");
+    var produitsTable = document.getElementById("produits-table").querySelector("tbody");
+
+    function attachProduitListener(select) {
+      select.addEventListener("change", function () {
+        var prix = this.options[this.selectedIndex].getAttribute("data-prix");
+        var prixInput = this.closest("tr").querySelector(".prix-produit");
+        if (prix) {
+          prixInput.value = parseFloat(prix).toFixed(2) + " €";
+        } else {
+          prixInput.value = "";
+        }
+      });
+    }
+
+    // Attacher les listeners aux selects existants
+    produitsTable.querySelectorAll(".produit-select").forEach(function (select) {
+      attachProduitListener(select);
+      // Déclencher l'événement change pour afficher le prix initial
+      select.dispatchEvent(new Event('change'));
+    });
+
+    // Ajouter une nouvelle ligne de produit
+    addRowButton.addEventListener("click", function () {
+      var newRow = produitsTable.insertRow();
+      newRow.innerHTML = `
+        <td>
+          <select name="produit[]" class="form-select produit-select" required>
+            <option value="" disabled selected>-- Sélectionnez un produit --</option>
+            {% for p in produits %}
+            <option value="{{ p.id }}" data-prix="{{ p.prix }}">{{ p.nom }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td>
+          <input type="number" name="quantite[]" class="form-control" min="1" value="1" required />
+        </td>
+        <td>
+          <input type="text" name="prix[]" class="form-control prix-produit" readonly />
+        </td>
+        <td>
+          <button type="button" class="btn btn-danger delete-row">Supprimer</button>
+        </td>
+      `;
+      attachProduitListener(newRow.querySelector(".produit-select"));
+    });
+
+    // Supprimer une ligne
+    produitsTable.addEventListener("click", function (e) {
+      if (e.target && e.target.classList.contains("delete-row")) {
+        // Empêcher la suppression de la dernière ligne
+        if (produitsTable.querySelectorAll("tr").length > 1) {
+          e.target.closest("tr").remove();
+        } else {
+          alert("Au moins un produit est requis pour la commande.");
+        }
+      }
+    });
+  });
+</script>
+{% endblock content %}

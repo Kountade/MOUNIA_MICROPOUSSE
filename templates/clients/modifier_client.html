@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+  <div class="page-inner">
+    <div class="page-header">
+      <h3 class="fw-bold mb-3">
+        <i class="bi bi-pencil-square me-2"></i>Modifier le Client
+      </h3>
+      <ul class="breadcrumbs mb-3">
+        <li class="nav-home">
+          <a href="{% url 'home' %}"><i class="icon-home"></i></a>
+        </li>
+        <li class="separator"><i class="icon-arrow-right"></i></li>
+        <li class="nav-item">
+          <a href="{% url 'liste_clients' %}">Clients</a>
+        </li>
+        <li class="separator"><i class="icon-arrow-right"></i></li>
+        <li class="nav-item">
+          <a href="{% url 'detail_client' client.pk %}">{{ client.nom }}</a>
+        </li>
+        <li class="separator"><i class="icon-arrow-right"></i></li>
+        <li class="nav-item active">Modifier</li>
+      </ul>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-10 col-xl-9 mx-auto">
+        <div class="card mb-4" style="border: 2px solid #ffc107">
+          <div class="card-header text-dark fw-bold text-center" style="background-color: #ffc107">
+            <i class="bi bi-pencil me-2"></i>Modification du Client
+          </div>
+          <div class="card-body">
+            
+            <!-- Informations du client -->
+            <div class="alert alert-info d-flex align-items-center">
+              <i class="bi bi-info-circle-fill me-3 fs-5"></i>
+              <div>
+                <strong>Modification en cours :</strong> {{ client.nom }} - {{ client.ville }}
+                <br><small class="text-muted">Dernière modification : {{ client.date_creation|date:"d/m/Y H:i" }}</small>
+              </div>
+            </div>
+
+            <!-- Messages système -->
+            {% if messages %}
+              {% for message in messages %}
+              <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                <i class="bi bi-{% if message.tags == 'success' %}check-circle{% else %}exclamation-triangle{% endif %} me-2"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+              {% endfor %}
+            {% endif %}
+
+            <!-- Formulaire de modification -->
+            <form method="POST" class="row g-3">
+              {% csrf_token %}
+              
+              {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                {% for error in form.non_field_errors %}
+                  {{ error }}
+                {% endfor %}
+              </div>
+              {% endif %}
+
+              <!-- Nom -->
+              <div class="col-md-8 mb-3">
+                <label for="id_nom" class="form-label fw-semibold">
+                  <i class="bi bi-shop me-1"></i>Nom du Restaurant <span class="text-danger">*</span>
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-building text-warning"></i></span>
+                  <input type="text" name="nom" id="id_nom" 
+                         class="form-control {% if form.nom.errors %}is-invalid{% endif %}" 
+                         value="{{ form.nom.value|default:'' }}" required>
+                </div>
+                {% if form.nom.errors %}
+                <div class="invalid-feedback d-block">
+                  {% for error in form.nom.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- ICE -->
+              <div class="col-md-8 mb-3">
+                <label for="id_ice" class="form-label fw-semibold">
+                  <i class="bi bi-card-text me-1"></i>ICE <span class="text-danger">*</span>
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-credit-card text-warning"></i></span>
+                  <input type="text" name="ice" id="id_ice" 
+                         class="form-control {% if form.ice.errors %}is-invalid{% endif %}" 
+                         value="{{ form.ice.value|default:'' }}" 
+                         maxlength="15" required>
+                </div>
+                {% if form.ice.errors %}
+                <div class="invalid-feedback d-block">
+                  {% for error in form.ice.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+                <small class="form-text text-muted ms-4"><i class="bi bi-info-circle me-1"></i>15 chiffres uniquement</small>
+              </div>
+
+              <!-- Responsable -->
+              <div class="col-md-8 mb-3">
+                <label for="id_responsable" class="form-label fw-semibold">
+                  <i class="bi bi-person me-1"></i>Responsable
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-person-badge text-warning"></i></span>
+                  <input type="text" name="responsable" id="id_responsable" 
+                         class="form-control {% if form.responsable.errors %}is-invalid{% endif %}" 
+                         value="{{ form.responsable.value|default:'' }}">
+                </div>
+                {% if form.responsable.errors %}
+                <div class="invalid-feedback d-block">
+                  {% for error in form.responsable.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Téléphone et Email -->
+              <div class="col-md-6 mb-3">
+                <label for="id_telephone" class="form-label fw-semibold">
+                  <i class="bi bi-telephone me-1"></i>Téléphone
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-telephone-fill text-warning"></i></span>
+                  <input type="tel" name="telephone" id="id_telephone" 
+                         class="form-control {% if form.telephone.errors %}is-invalid{% endif %}" 
+                         value="{{ form.telephone.value|default:'' }}">
+                </div>
+                {% if form.telephone.errors %}
+                <div class="invalid-feedback d-block">
+                  {% for error in form.telephone.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label for="id_email" class="form-label fw-semibold">
+                  <i class="bi bi-envelope me-1"></i>Email
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-envelope-at text-warning"></i></span>
+                  <input type="email" name="email" id="id_email" 
+                         class="form-control {% if form.email.errors %}is-invalid{% endif %}" 
+                         value="{{ form.email.value|default:'' }}">
+                </div>
+                {% if form.email.errors %}
+                <div class="invalid-feedback d-block">
+                  {% for error in form.email.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Adresse - Pleine largeur -->
+              <div class="col-12 mb-3">
+                <label for="id_adresse" class="form-label fw-semibold">
+                  <i class="bi bi-geo-alt me-1"></i>Adresse
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light align-items-start pt-2"><i class="bi bi-geo-alt-fill text-warning"></i></span>
+                  <textarea name="adresse" id="id_adresse" 
+                            class="form-control {% if form.adresse.errors %}is-invalid{% endif %}" 
+                            rows="3">{{ form.adresse.value|default:'' }}</textarea>
+                </div>
+                {% if form.adresse.errors %}
+                <div class="invalid-feedback d-block">
+                  {% for error in form.adresse.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Ville et Prix de livraison -->
+              <div class="col-md-6 mb-3">
+                <label for="id_ville" class="form-label fw-semibold">
+                  <i class="bi bi-building me-1"></i>Ville <span class="text-danger">*</span>
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-pin-map text-warning"></i></span>
+                  <input type="text" name="ville" id="id_ville" 
+                         class="form-control {% if form.ville.errors %}is-invalid{% endif %}" 
+                         value="{{ form.ville.value|default:'' }}" required>
+                </div>
+                {% if form.ville.errors %}
+                <div class="invalid-feedback d-block">
+                  {% for error in form.ville.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label for="id_prix_livraison" class="form-label fw-semibold">
+                  <i class="bi bi-currency-euro me-1"></i>Prix de livraison (€) <span class="text-danger">*</span>
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-truck text-warning"></i></span>
+                  <input type="number" name="prix_livraison" id="id_prix_livraison" 
+                         class="form-control {% if form.prix_livraison.errors %}is-invalid{% endif %}" 
+                         value="{{ form.prix_livraison.value|default:'' }}" 
+                         step="0.01" min="0" required>
+                  <span class="input-group-text bg-light">€</span>
+                </div>
+                {% if form.prix_livraison.errors %}
+                <div class="invalid-feedback d-block">
+                  {% for error in form.prix_livraison.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Informations de suivi -->
+              <div class="col-12 mt-4">
+                <div class="card bg-light">
+                  <div class="card-body py-3">
+                    <div class="row text-center">
+                      <div class="col-md-4 border-end">
+                        <small class="text-muted">Date de création</small>
+                        <div class="fw-bold text-primary">
+                          <i class="bi bi-calendar-plus me-1"></i>{{ client.date_creation|date:"d/m/Y" }}
+                        </div>
+                      </div>
+                      <div class="col-md-4 border-end">
+                        <small class="text-muted">Heure de création</small>
+                        <div class="fw-bold text-primary">
+                          <i class="bi bi-clock me-1"></i>{{ client.date_creation|date:"H:i" }}
+                        </div>
+                      </div>
+                      <div class="col-md-4">
+                        <small class="text-muted">Dernière modification</small>
+                        <div class="fw-bold text-warning">
+                          <i class="bi bi-arrow-repeat me-1"></i>Maintenant
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Boutons d'action -->
+              <div class="col-12 text-center mt-4 pt-3 border-top">
+                <button type="submit" class="btn btn-warning btn-lg px-4">
+                  <i class="bi bi-check-circle-fill me-2"></i> 
+                  Mettre à jour le client
+                </button>
+                <a href="{% url 'detail_client' client.pk %}" class="btn btn-outline-info btn-lg px-4">
+                  <i class="bi bi-eye me-2"></i> Voir la fiche
+                </a>
+                <a href="{% url 'liste_clients' %}" class="btn btn-outline-secondary btn-lg px-4">
+                  <i class="bi bi-x-circle me-2"></i> Annuler
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.input-group-text {
+  border-right: none;
+  transition: all 0.3s ease;
+}
+
+.form-control {
+  border-left: none;
+  transition: all 0.3s ease;
+}
+
+.form-control:focus {
+  border-color: #ffc107;
+  box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+}
+
+.input-group:focus-within .input-group-text {
+  background-color: #fffbf0;
+  border-color: #ffc107;
+}
+
+.card-body {
+  padding: 2rem;
+}
+
+.btn {
+  transition: all 0.3s ease;
+}
+
+.border-end {
+  border-right: 1px solid #dee2e6 !important;
+}
+</style>
+{% endblock content %}

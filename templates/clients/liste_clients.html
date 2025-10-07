@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="container">
+  <div class="page-inner">
+    <div class="page-header">
+      <h3 class="fw-bold mb-3">Liste des Clients</h3>
+      <ul class="breadcrumbs mb-3">
+        <li class="nav-home">
+          <a href="{% url 'home' %}">
+            <i class="icon-home"></i>
+          </a>
+        </li>
+        <li class="separator">
+          <i class="icon-arrow-right"></i>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'liste_clients' %}">Clients</a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Affichage des messages -->
+    {% if messages %} {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">
+      {{ message }}
+      <button
+        type="button"
+        class="close"
+        data-dismiss="alert"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    {% endfor %} {% endif %}
+
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <div class="d-flex align-items-center">
+              <h4 class="card-title">Liste des Clients</h4>
+
+              <!-- Bouton Ajouter -->
+              <a
+                href="{% url 'ajouter_client' %}"
+                class="btn btn-outline-primary ms-auto me-2"
+              >
+                <i class="bi bi-plus-square"></i> Ajouter un client
+              </a>
+
+              <!-- Bouton Exporter Excel -->
+              <a
+                href=""
+                class="btn btn-success me-2"
+              >
+                <i class="bi bi-file-earmark-excel"></i> Exporter Excel
+              </a>
+
+              <!-- Bouton Exporter PDF -->
+              <a
+                href=""
+                class="btn btn-danger"
+              >
+                <i class="bi bi-file-earmark-pdf"></i> Exporter PDF
+              </a>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="table-responsive">
+              <table
+                id="clients-table"
+                class="display table table-striped table-hover"
+              >
+                <thead>
+                  <tr>
+                    <th style="width: 200px">Nom du Restaurant</th>
+                    <th style="width: 150px">Responsable</th>
+                    <th style="width: 120px">Téléphone</th>
+                    <th style="width: 200px">Email</th>
+                    <th style="width: 250px">Adresse</th>
+                    <th style="width: 120px">Ville</th>
+                    <th style="width: 200px">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for client in clients %}
+                  <tr>
+                    <td>{{ client.nom }}</td>
+                    <td>{{ client.responsable }}</td>
+                    <td>{{ client.telephone }}</td>
+                    <td>{{ client.email }}</td>
+                    <td>{{ client.adresse }}</td>
+                    <td>{{ client.ville }}</td>
+                    <td>
+                      <div class="d-flex justify-content-center">
+                        <!-- Bouton Détails -->
+                        <a
+                          href="{% url 'detail_client' client.pk %}"
+                          class="btn btn-info btn me-2"
+                          data-toggle="tooltip"
+                          title="Détails"
+                        >
+                          <i class="bi bi-eye"></i>
+                        </a>
+
+                        <!-- Bouton Modifier -->
+                        <a
+                          href="{% url 'modifier_client' client.pk %}"
+                          class="btn btn-primary btn me-2"
+                          data-toggle="tooltip"
+                          title="Modifier"
+                        >
+                          <i class="bi bi-pencil"></i>
+                        </a>
+
+                        <!-- Bouton Supprimer -->
+                        <button
+                          type="button"
+                          class="btn btn-danger btn"
+                          data-toggle="modal"
+                          data-target="#deleteModal{{ client.pk }}"
+                          title="Supprimer"
+                        >
+                          <i class="bi bi-trash"></i>
+                        </button>
+
+                        <!-- Modal de confirmation pour la suppression -->
+                        <div
+                          class="modal fade"
+                          id="deleteModal{{ client.pk }}"
+                          tabindex="-1"
+                          role="dialog"
+                          aria-labelledby="deleteModalLabel{{ client.pk }}"
+                          aria-hidden="true"
+                        >
+                          <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                              <div class="modal-header">
+                                <h5
+                                  class="modal-title"
+                                  id="deleteModalLabel{{ client.pk }}"
+                                >
+                                  Confirmer la suppression
+                                </h5>
+                                <button
+                                  type="button"
+                                  class="close"
+                                  data-dismiss="modal"
+                                  aria-label="Close"
+                                >
+                                  <span aria-hidden="true">&times;</span>
+                                </button>
+                              </div>
+                              <div class="modal-body">
+                                Êtes-vous sûr de vouloir supprimer le client
+                                <strong>{{ client.nom }}</strong> ?
+                              </div>
+                              <div class="modal-footer">
+                                <button
+                                  type="button"
+                                  class="btn btn-secondary"
+                                  data-dismiss="modal"
+                                >
+                                  Annuler
+                                </button>
+                                <form
+                                  method="POST"
+                                  action="{% url 'supprimer_client' client.pk %}"
+                                >
+                                  {% csrf_token %}
+                                  <button type="submit" class="btn btn-danger">
+                                    Supprimer
+                                  </button>
+                                </form>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Styles CSS -->
+<style>
+  .table-responsive {
+    overflow-x: auto !important; /* ✅ autorise le défilement horizontal */
+  }
+  table {
+    width: 100%;
+    table-layout: auto; /* ✅ laisse les colonnes s'adapter */
+    white-space: nowrap;
+  }
+  th,
+  td {
+    text-align: center;
+    vertical-align: middle;
+  }
+  .btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.9rem;
+  }
+  .d-flex.justify-content-center {
+    gap: 0.4rem; /* ✅ espace uniforme entre les boutons */
+    flex-wrap: nowrap;
+  }
+</style>
+
+<!-- JS DataTable -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script>
+  $(document).ready(function () {
+    $("#clients-table").DataTable({
+      pageLength: 10,
+      autoWidth: false,
+      responsive: true,
+      scrollX: true, /* ✅ permet le scroll horizontal si nécessaire */
+      language: {
+        url: "https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json"
+      },
+      columnDefs: [
+        { orderable: false, targets: -1 }, // ✅ désactive le tri sur la colonne Actions
+        { width: "200px", targets: 0 },
+        { width: "150px", targets: 1 },
+        { width: "120px", targets: 2 },
+        { width: "200px", targets: 3 },
+        { width: "250px", targets: 4 },
+        { width: "120px", targets: 5 },
+        { width: "180px", targets: 6 },
+      ],
+    });
+    $('[data-toggle="tooltip"]').tooltip();
+  });
+</script>
+
+{% endblock content %}

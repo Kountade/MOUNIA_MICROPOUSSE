@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+  <div class="page-inner">
+    <div class="page-header">
+      <h3 class="fw-bold mb-3">
+        <i class="bi bi-eye me-2"></i>Fiche Client
+      </h3>
+      <ul class="breadcrumbs mb-3">
+        <li class="nav-home">
+          <a href="{% url 'home' %}"><i class="icon-home"></i></a>
+        </li>
+        <li class="separator"><i class="icon-arrow-right"></i></li>
+        <li class="nav-item">
+          <a href="{% url 'liste_clients' %}">Clients</a>
+        </li>
+        <li class="separator"><i class="icon-arrow-right"></i></li>
+        <li class="nav-item active">{{ client.nom }}</li>
+      </ul>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-10 col-xl-9 mx-auto">
+        <!-- En-tête du client -->
+        <div class="card mb-4" style="border: 2px solid #17a2b8">
+          <div class="card-header text-white fw-bold text-center" style="background-color: #17a2b8">
+            <i class="bi bi-building me-2"></i>{{ client.nom }}
+          </div>
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-md-8">
+                <h4 class="text-primary mb-1">{{ client.nom }}</h4>
+                <p class="text-muted mb-2">
+                  <i class="bi bi-geo-alt me-1"></i>{{ client.ville }} • 
+                  <i class="bi bi-truck me-1 ms-2"></i>Livraison : <strong>{{ client.prix_livraison }} €</strong>
+                </p>
+                <div class="badge bg-success fs-6">
+                  <i class="bi bi-check-circle me-1"></i>Client actif
+                </div>
+              </div>
+              <div class="col-md-4 text-end">
+                <div class="btn-group">
+                  <a href="{% url 'modifier_client' client.pk %}" class="btn btn-warning btn-lg">
+                    <i class="bi bi-pencil-square me-2"></i>Modifier
+                  </a>
+                  <button type="button" class="btn btn-warning dropdown-toggle dropdown-toggle-split" 
+                          data-bs-toggle="dropdown" aria-expanded="false">
+                    <span class="visually-hidden">Options</span>
+                  </button>
+                  <ul class="dropdown-menu">
+                    <li>
+                      <a class="dropdown-item" href="{% url 'modifier_client' client.pk %}">
+                        <i class="bi bi-pencil me-2"></i>Modifier les informations
+                      </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                      <a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#supprimerModal">
+                        <i class="bi bi-trash me-2"></i>Supprimer le client
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <!-- Colonne gauche : Informations principales -->
+          <div class="col-lg-8">
+            <!-- Informations générales -->
+            <div class="card mb-4">
+              <div class="card-header bg-primary text-white fw-bold">
+                <i class="bi bi-info-circle me-2"></i>Informations Générales
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold text-muted small">Nom du restaurant</label>
+                    <div class="d-flex align-items-center">
+                      <i class="bi bi-building text-primary me-3 fs-5"></i>
+                      <span class="fs-6">{{ client.nom }}</span>
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold text-muted small">ICE</label>
+                    <div class="d-flex align-items-center">
+                      <i class="bi bi-credit-card text-primary me-3 fs-5"></i>
+                      <span class="fs-6">{{ client.ice }}</span>
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold text-muted small">Responsable</label>
+                    <div class="d-flex align-items-center">
+                      <i class="bi bi-person-badge text-primary me-3 fs-5"></i>
+                      <span class="fs-6">{{ client.responsable|default:"Non spécifié" }}</span>
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold text-muted small">Ville</label>
+                    <div class="d-flex align-items-center">
+                      <i class="bi bi-geo-alt text-primary me-3 fs-5"></i>
+                      <span class="fs-6">{{ client.ville }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Informations de contact -->
+            <div class="card mb-4">
+              <div class="card-header bg-success text-white fw-bold">
+                <i class="bi bi-telephone me-2"></i>Informations de Contact
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold text-muted small">Téléphone</label>
+                    <div class="d-flex align-items-center">
+                      <i class="bi bi-telephone-fill text-success me-3 fs-5"></i>
+                      {% if client.telephone %}
+                        <span class="fs-6">{{ client.telephone }}</span>
+                        <a href="tel:{{ client.telephone }}" class="btn btn-sm btn-outline-success ms-2">
+                          <i class="bi bi-telephone-outbound"></i>
+                        </a>
+                      {% else %}
+                        <span class="fs-6 text-muted">Non spécifié</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold text-muted small">Email</label>
+                    <div class="d-flex align-items-center">
+                      <i class="bi bi-envelope text-success me-3 fs-5"></i>
+                      {% if client.email %}
+                        <span class="fs-6">{{ client.email }}</span>
+                        <a href="mailto:{{ client.email }}" class="btn btn-sm btn-outline-success ms-2">
+                          <i class="bi bi-send"></i>
+                        </a>
+                      {% else %}
+                        <span class="fs-6 text-muted">Non spécifié</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Adresse -->
+            <div class="card mb-4">
+              <div class="card-header bg-info text-white fw-bold">
+                <i class="bi bi-geo me-2"></i>Adresse
+              </div>
+              <div class="card-body">
+                <div class="d-flex">
+                  <i class="bi bi-pin-map text-info me-3 fs-4 mt-1"></i>
+                  <div>
+                    {% if client.adresse %}
+                      <p class="mb-2 fs-6">{{ client.adresse|linebreaksbr }}</p>
+                      <small class="text-muted">
+                        <i class="bi bi-geo-alt me-1"></i>{{ client.ville }}
+                      </small>
+                    {% else %}
+                      <p class="text-muted mb-0">Adresse non spécifiée</p>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Colonne droite : Informations secondaires -->
+          <div class="col-lg-4">
+            <!-- Prix de livraison -->
+            <div class="card mb-4">
+              <div class="card-header bg-warning text-dark fw-bold">
+                <i class="bi bi-currency-euro me-2"></i>Prix de Livraison
+              </div>
+              <div class="card-body text-center">
+                <div class="display-4 text-warning fw-bold mb-2">{{ client.prix_livraison }} €</div>
+                <p class="text-muted mb-0">Par commande livrée</p>
+              </div>
+            </div>
+
+            <!-- Métadonnées -->
+            <div class="card mb-4">
+              <div class="card-header bg-secondary text-white fw-bold">
+                <i class="bi bi-clock me-2"></i>Informations Système
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label class="form-label fw-semibold text-muted small">Date de création</label>
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-calendar-plus text-secondary me-2"></i>
+                    <span>{{ client.date_creation|date:"d/m/Y" }}</span>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold text-muted small">Heure de création</label>
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-clock text-secondary me-2"></i>
+                    <span>{{ client.date_creation|date:"H:i" }}</span>
+                  </div>
+                </div>
+                <div class="mb-0">
+                  <label class="form-label fw-semibold text-muted small">Identifiant client</label>
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-hash text-secondary me-2"></i>
+                    <span>#{{ client.pk }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions rapides -->
+            <div class="card">
+              <div class="card-header bg-dark text-white fw-bold">
+                <i class="bi bi-lightning me-2"></i>Actions Rapides
+              </div>
+              <div class="card-body">
+                <div class="d-grid gap-2">
+                  <a href="{% url 'modifier_client' client.pk %}" class="btn btn-warning btn-sm">
+                    <i class="bi bi-pencil me-2"></i>Modifier le client
+                  </a>
+                  <a href="tel:{{ client.telephone|default:'' }}" class="btn btn-outline-success btn-sm {% if not client.telephone %}disabled{% endif %}">
+                    <i class="bi bi-telephone me-2"></i>Appeler
+                  </a>
+                  <a href="mailto:{{ client.email|default:'' }}" class="btn btn-outline-primary btn-sm {% if not client.email %}disabled{% endif %}">
+                    <i class="bi bi-envelope me-2"></i>Envoyer un email
+                  </a>
+                  <a href="{% url 'liste_clients' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-2"></i>Retour à la liste
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de suppression -->
+<div class="modal fade" id="supprimerModal" tabindex="-1" aria-labelledby="supprimerModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="supprimerModalLabel">
+          <i class="bi bi-exclamation-triangle me-2"></i>Confirmation de suppression
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Êtes-vous sûr de vouloir supprimer le client <strong>"{{ client.nom }}"</strong> ?</p>
+        <p class="text-danger">
+          <i class="bi bi-exclamation-circle me-1"></i>
+          Cette action est irréversible et supprimera toutes les données associées à ce client.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-circle me-2"></i>Annuler
+        </button>
+        <form method="POST" action="{% url 'supprimer_client' client.pk %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash me-2"></i>Supprimer définitivement
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.card {
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.display-4 {
+  font-size: 2.5rem;
+  font-weight: 300;
+  line-height: 1.2;
+}
+
+.btn-group .dropdown-toggle-split {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+</style>
+{% endblock content %}
