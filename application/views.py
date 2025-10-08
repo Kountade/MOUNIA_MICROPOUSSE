@@ -8,6 +8,13 @@ from .forms import ClientForm, CustomUserCreationForm, ParametresForm,ProduitFor
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 
+from django.conf.urls import handler404
+from django.shortcuts import render
+
+def custom_page_not_found_view(request, exception):
+    return render(request, "404.html", status=404)
+
+handler404 = custom_page_not_found_view
 
 
 # Create your views here.
@@ -1351,37 +1358,7 @@ def parametres_application(request):
     })
     
     
-    
-    
-    
-    
-    
-    
-    
-def custom_404_view(request, exception):
-    """
-    Vue personnalisée pour la page 404.
-    """
-    return render(request, '404.html', status=404)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  
 
 
 

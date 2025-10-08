@@ -1,102 +1,163 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Page non trouvée - 404 | Education</title>
+    <title>
+      404 - Page non trouvée | {{ parametres.nom_hotel|default:"Mounia" }}
+    </title>
 
-    <!-- Bootstrap 5 CDN -->
+    <!-- Bootstrap -->
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Google Font -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
 
     <style>
       body {
-        background-image: url("{% static 'assets/img/background.jpg' %}");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #f3f4f6, #ffffff);
+        color: #333;
+        overflow-x: hidden;
+      }
+
+      .error-section {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
         min-height: 100vh;
+        text-align: center;
+        padding: 40px 20px;
       }
-      .error-container {
-        max-width: 700px;
-        margin-top: 50px;
-        padding: 50px;
-        border-radius: 15px;
-        background: rgba(255, 255, 255, 0.9);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+
+      .error-illustration {
+        width: 300px;
+        max-width: 90%;
+        margin-bottom: 30px;
+        animation: float 3s ease-in-out infinite;
       }
-      .logo img {
-        max-width: 150px;
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
       }
+
       .error-code {
-        font-size: 6rem;
-        font-weight: bold;
-        color: #d9534f;
-        margin-bottom: 0;
+        font-size: 120px;
+        font-weight: 700;
+        color: #007bff;
+      }
+
+      .error-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 15px;
+      }
+
+      .error-text {
+        font-size: 16px;
+        color: #6c757d;
+        margin-bottom: 30px;
+      }
+
+      .btn-main {
+        background-color: #007bff;
+        border: none;
+        color: #fff;
+        font-weight: 600;
+        padding: 12px 30px;
+        border-radius: 30px;
+        transition: 0.3s ease;
+      }
+
+      .btn-main:hover {
+        background-color: #0056b3;
+        transform: translateY(-3px);
+      }
+
+      .btn-outline {
+        border: 2px solid #007bff;
+        color: #007bff;
+        padding: 10px 25px;
+        border-radius: 30px;
+        font-weight: 600;
+        transition: 0.3s ease;
+      }
+
+      .btn-outline:hover {
+        background-color: #007bff;
+        color: #fff;
+        transform: translateY(-3px);
+      }
+
+      .logo h6 {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-weight: 600;
+        font-size: 18px;
+        color: #333;
+      }
+
+      .logo img {
+        height: 40px;
+        width: auto;
       }
     </style>
   </head>
+
   <body>
-    <main class="d-flex align-items-start justify-content-center min-vh-100">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-md-10 col-lg-8">
-            <!-- Logo -->
-            <div class="text-center mb-4">
-              <a href="{% url 'home' %}" class="logo">
-                <img
-                  src="{% static 'assets/img/school.png' %}"
-                  alt="Votre École"
-                />
-              </a>
-            </div>
-
-            <!-- Contenu de l'erreur 404 -->
-            <div class="error-container text-center">
-              <h1 class="error-code">404</h1>
-              <h2 class="mb-4">Page non trouvée</h2>
-              <p class="mb-4 lead">
-                Oups ! La page que vous cherchez n'existe pas ou a été déplacée.
-              </p>
-
-              <!-- Suggestions et liens utiles -->
-              <div class="d-flex flex-column gap-3 mb-4">
-                <a href="{% url 'home' %}" class="btn btn-primary btn-lg"
-                  >Retour à la page d'accueil</a
-                >
-                <a href="#" class="btn btn-outline-secondary"
-                  >Visitez notre blog</a
-                >
-                <a href="#" class="btn btn-outline-secondary"
-                  >Contactez le support</a
-                >
-              </div>
-
-              <!-- Barre de recherche (optionnelle) -->
-              <form class="d-flex mb-4" role="search">
-                <input
-                  class="form-control me-2"
-                  type="search"
-                  placeholder="Rechercher..."
-                  aria-label="Search"
-                />
-                <button class="btn btn-outline-success" type="submit">
-                  Chercher
-                </button>
-              </form>
-
-              <p class="text-muted">
-                Si vous pensez qu'il s'agit d'une erreur, veuillez contacter
-                l'administrateur du site.
-              </p>
-            </div>
-          </div>
-        </div>
+    <section class="error-section">
+      <!-- Logo et nom d’hôtel -->
+      <div class="logo mb-4">
+        <h6 class="op-7 mb-2">
+          {% if parametres.logo %}
+          <img
+            src="{{ parametres.logo.url }}"
+            alt="Logo {{ parametres.nom_hotel }}"
+            class="me-2"
+          />
+          {% endif %} {{ parametres.nom_hotel|default:"Mon Hôtel" }}
+        </h6>
       </div>
-    </main>
-  </body> 
+
+      <!-- Illustration -->
+      <img
+        src="{% static 'assets/img/404-illustration.svg' %}"
+        alt="Erreur 404"
+        class="error-illustration"
+        onerror="this.style.display='none'"
+      />
+
+      <!-- Texte -->
+      <h1 class="error-code">404</h1>
+      <h2 class="error-title">Oups ! Page introuvable</h2>
+      <p class="error-text">
+        La page que vous recherchez semble avoir été déplacée, supprimée ou
+        n’avoir jamais existé.
+      </p>
+
+      <!-- Boutons -->
+      <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+        <a href="{% url 'home' %}" class="btn btn-main">Retour à l’accueil</a>
+        <a href="#" class="btn btn-outline">Contacter le support</a>
+      </div>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
 </html>
