@@ -1202,7 +1202,7 @@ def facture_client_mois_pdf(request):
     elements.append(Paragraph("<b>INFORMATIONS CLIENT</b>", styles['Heading2']))
     client_info = [
         [Paragraph("<b>Nom:</b>", styles['Normal']), client.nom],
-        [Paragraph("<b>Ville:</b>", styles['Normal']), client.ice],
+        [Paragraph("<b>Ice:</b>", styles['Normal']), client.ice],
         [Paragraph("<b>Ville:</b>", styles['Normal']), client.ville],
         [Paragraph("<b>Prix livraison:</b>", styles['Normal']), f"{client.prix_livraison} MAD"],
         [Paragraph("<b>Période de facturation:</b>", styles['Normal']), mois_nom],
