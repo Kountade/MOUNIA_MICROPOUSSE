@@ -1354,7 +1354,7 @@ def parametres_application(request):
     else:
         form = ParametresForm(instance=parametres)
     
-    return render(request, 'parametres/application.html', {
+    return render(request, 'parametre/applications.html', {
         'form': form,
         'parametres': parametres
     })
