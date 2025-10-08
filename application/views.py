@@ -544,13 +544,14 @@ def export_commande_bon_pdf(request, pk):
 
     # === INFOS COMMANDE ===
     elements.append(Paragraph(f"<b>Numéro :</b> {commande.id}", styleN))
-    elements.append(Paragraph(f"<b>Date :</b> {commande.date_commande.strftime('%d/%m/%Y %H:%M')}", styleN))
+    elements.append(Paragraph(f"<b>Date :</b> {commande.date_commande.strftime('%d/%m/%Y')}", styleN))
     elements.append(Paragraph(f"<b>Statut :</b> {commande.statut}", styleN))
     elements.append(Spacer(1, 12))
 
     # === INFOS CLIENT ===
     elements.append(Paragraph("<b>Informations du client</b>", styles["Heading2"]))
     elements.append(Paragraph(f"Nom : {commande.client.nom}", styleN))
+    elements.append(Paragraph(f"ICE : {commande.client.ice}", styleN))
     elements.append(Paragraph(f"Adresse : {commande.client.adresse}", styleN))
     elements.append(Paragraph(f"Téléphone : {commande.client.telephone}", styleN))
     elements.append(Paragraph(f"Email : {commande.client.email or 'Non renseigné'}", styleN))
@@ -1201,6 +1202,7 @@ def facture_client_mois_pdf(request):
     elements.append(Paragraph("<b>INFORMATIONS CLIENT</b>", styles['Heading2']))
     client_info = [
         [Paragraph("<b>Nom:</b>", styles['Normal']), client.nom],
+        [Paragraph("<b>Ville:</b>", styles['Normal']), client.ice],
         [Paragraph("<b>Ville:</b>", styles['Normal']), client.ville],
         [Paragraph("<b>Prix livraison:</b>", styles['Normal']), f"{client.prix_livraison} MAD"],
         [Paragraph("<b>Période de facturation:</b>", styles['Normal']), mois_nom],

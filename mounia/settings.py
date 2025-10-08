@@ -38,15 +38,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-1=(!k99p8!%&^b&zagsh^aetfl^9y(u)g#^_)h1lyi8$^h2kiu"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-
-
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['mounia-micropousse.onrender.com', 'localhost', '127.0.0.1']
-CSRF_TRUSTED_ORIGINS = [
-    'https://mounia-micropousse.onrender.com',
-   
-]
+CSRF_TRUSTED_ORIGINS = ['https://mounia-micropousse.onrender.com']
 
 # Application definition
 
