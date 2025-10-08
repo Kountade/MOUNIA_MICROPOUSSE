@@ -43,7 +43,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['mounia-micropousse.onrender.com', 'localhost', '127.0.0.1']
 CSRF_TRUSTED_ORIGINS = ['https://mounia-micropousse.onrender.com']
 
-# Application definition
+# Application definitionss
 
 INSTALLED_APPS = [
     "django.contrib.admin",
