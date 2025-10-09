@@ -1,20 +1,6 @@
 from django.db import models
 from django.utils import timezone
-# Create your models here.
-from django.db import models
-from decimal import Decimal
-    
-import time
-from django.db import models
-from django.utils.timezone import now
 from django.core.exceptions import ValidationError
-import uuid
-from django.db import models
-from django.db.models import Avg, Sum, F
-from django.core.validators import MinValueValidator
-from django.utils.translation import gettext_lazy as _ 
-
-from django.db import models
 
 class Client(models.Model):
     nom = models.CharField(max_length=150, verbose_name="Nom du restaurant")
@@ -33,9 +19,9 @@ class Client(models.Model):
     prix_livraison = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        verbose_name="Prix de livraison (en €)"
+        verbose_name="Prix de livraison (en MAD)"
     )
-    date_creation = models.DateTimeField(auto_now_add=True, verbose_name="Date d’ajout")
+    date_creation = models.DateTimeField(auto_now_add=True, verbose_name="Date d'ajout")
 
     class Meta:
         verbose_name = "Client (Restaurant)"
@@ -43,91 +29,207 @@ class Client(models.Model):
         ordering = ["nom"]
 
     def __str__(self):
-        return f"{self.nom} - {self.ville} ({self.prix_livraison} €)"
-
+        return f"{self.nom} - {self.ville} ({self.prix_livraison} MAD)"
 
 class Produit(models.Model):
-    nom = models.CharField(max_length=100, unique=True)  # Nom du produit
-    description = models.TextField(blank=True, null=True)  # Description du produit
-    prix = models.DecimalField(max_digits=10, decimal_places=2)  # Prix du produit
-    image = models.ImageField(upload_to="produits/", blank=True, null=True)  # Image du produit
-    date_ajout = models.DateTimeField(auto_now_add=True)  # Date d'ajout automatique
+    nom = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    prix = models.DecimalField(max_digits=10, decimal_places=2)
+    image = models.ImageField(upload_to="produits/", blank=True, null=True)
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    actif = models.BooleanField(default=True, verbose_name="Produit actif")
 
     class Meta:
-        ordering = ["-date_ajout"]  # Produits les plus récents en premier
+        ordering = ["-date_ajout"]
         verbose_name = "Produit"
         verbose_name_plural = "Produits"
 
     def __str__(self):
         return self.nom
 
+from decimal import Decimal
+from django.db import models
+from django.utils import timezone
 
 class Commande(models.Model):
+    STATUT_CHOICES = [
+        ('En cours', 'En cours'),
+        ('Confirmée', 'Confirmée'),
+        ('Livrée', 'Livrée'),
+        ('Annulée', 'Annulée'),
+    ]
+
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="commandes")
-  
     date_commande = models.DateTimeField(default=timezone.now)
-    statut = models.CharField(max_length=20, default="En cours")
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="En cours")
+    notes = models.TextField(blank=True, null=True, verbose_name="Notes internes")
+    date_modification = models.DateTimeField(auto_now=True, verbose_name="Dernière modification")
+
+    class Meta:
+        verbose_name = "Commande"
+        verbose_name_plural = "Commandes"
+        ordering = ["-date_commande"]
 
     def __str__(self):
         return f"Commande #{self.id} - {self.client.nom}"
 
+    # === PROPRIÉTÉS CALCULÉES POUR LES TOTAUX ===
+    
     @property
     def total_sans_livraison(self):
         """Total des produits sans le prix de livraison"""
-        return sum(item.sous_total for item in self.items.all())
+        try:
+            return sum(Decimal(str(item.sous_total)) for item in self.items.all())
+        except:
+            return Decimal('0.00')
 
     @property
     def total(self):
         """Total final incluant le prix de livraison du client"""
-        total_produits = self.total_sans_livraison
-        prix_livraison = self.client.prix_livraison
-        return total_produits + prix_livraison
+        try:
+            total_produits = self.total_sans_livraison
+            prix_livraison = Decimal(str(self.client.prix_livraison))
+            return total_produits + prix_livraison
+        except:
+            return Decimal('0.00')
 
     @property
     def frais_livraison(self):
         """Retourne les frais de livraison du client"""
-        return self.client.prix_livraison
+        try:
+            return Decimal(str(self.client.prix_livraison))
+        except:
+            return Decimal('0.00')
 
+    # === PROPRIÉTÉS POUR LES REMISES ===
+    
+    @property
+    def remise_appliquee(self):
+        """Retourne la remise applicable pour ce client ce mois-ci"""
+        mois_commande = self.date_commande.strftime('%Y-%m')
+        try:
+            return RemiseClient.objects.get(
+                client=self.client,
+                mois_application=mois_commande
+            )
+        except RemiseClient.DoesNotExist:
+            return None
+
+    @property
+    def montant_remise(self):
+        """Calcule le montant de la remise en MAD"""
+        remise = self.remise_appliquee
+        if not remise:
+            return Decimal('0.00')
+        
+        try:
+            if remise.type_remise == 'pourcentage':
+                return self.total * (Decimal(str(remise.valeur_remise)) / Decimal('100'))
+            else:
+                return Decimal(str(remise.valeur_remise))
+        except:
+            return Decimal('0.00')
+
+    @property
+    def total_avec_remise(self):
+        """Calcule le total après remise"""
+        try:
+            return max(self.total - self.montant_remise, Decimal('0.00'))
+        except:
+            return self.total
+
+    @property
+    def pourcentage_remise(self):
+        """Retourne le pourcentage de remise appliqué"""
+        remise = self.remise_appliquee
+        if remise and remise.type_remise == 'pourcentage':
+            try:
+                return Decimal(str(remise.valeur_remise))
+            except:
+                return Decimal('0.00')
+        return Decimal('0.00')
 
 class CommandeItem(models.Model):
     commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name="items")
-    produit = models.ForeignKey("Produit", on_delete=models.CASCADE)
+    produit = models.ForeignKey(Produit, on_delete=models.CASCADE)
     quantite = models.PositiveIntegerField(default=1)
     prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
+    date_ajout = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Item de commande"
+        verbose_name_plural = "Items de commande"
+        ordering = ["date_ajout"]
 
     def save(self, *args, **kwargs):
+        """Surcharge de la méthode save pour définir le prix unitaire automatiquement"""
         if not self.prix_unitaire:
             self.prix_unitaire = self.produit.prix
         super().save(*args, **kwargs)
 
     @property
     def sous_total(self):
-        return self.quantite * self.prix_unitaire
+        """Calcule le sous-total pour cet item"""
+        try:
+            return Decimal(str(self.quantite)) * Decimal(str(self.prix_unitaire))
+        except:
+            return Decimal('0.00')
 
     def __str__(self):
-        return f"{self.produit.nom} x {self.quantite}"
-
-# models.py
+        return f"{self.produit.nom} x {self.quantite} - {self.sous_total:.2f} MAD"
 
 class RemiseClient(models.Model):
     TYPE_REMISE_CHOICES = [
-        ('pourcentage', 'Pourcentage'),
-        ('fixe', 'Montant fixe'),
+        ('pourcentage', 'Pourcentage (%)'),
+        ('fixe', 'Montant fixe (MAD)'),
     ]
     
-    client = models.ForeignKey(Client, on_delete=models.CASCADE)
-    type_remise = models.CharField(max_length=20, choices=TYPE_REMISE_CHOICES)
-    valeur_remise = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    mois_application = models.CharField(max_length=7)  # Format: YYYY-MM
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="remises")
+    type_remise = models.CharField(max_length=20, choices=TYPE_REMISE_CHOICES, verbose_name="Type de remise")
+    valeur_remise = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0,
+        verbose_name="Valeur de la remise"
+    )
+    mois_application = models.CharField(
+        max_length=7,
+        verbose_name="Mois d'application",
+        help_text="Format: YYYY-MM"
+    )
+    description = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Description de la remise"
+    )
     date_creation = models.DateTimeField(auto_now_add=True)
-    
+    date_modification = models.DateTimeField(auto_now=True)
+
     class Meta:
+        verbose_name = "Remise client"
+        verbose_name_plural = "Remises clients"
         unique_together = ['client', 'mois_application']
+        ordering = ['-mois_application', 'client']
     
     def __str__(self):
-        return f"Remise {self.client.nom} - {self.mois_application}"
-    
+        type_affichage = "%" if self.type_remise == 'pourcentage' else "MAD"
+        return f"Remise {self.client.nom} - {self.mois_application} ({self.valeur_remise} {type_affichage})"
 
+    @property
+    def valeur_affichage(self):
+        """Retourne la valeur formatée pour l'affichage"""
+        if self.type_remise == 'pourcentage':
+            return f"{self.valeur_remise}%"
+        else:
+            return f"{self.valeur_remise} MAD"
+
+    def calculer_remise(self, montant_total):
+        """Calcule le montant de la remise pour un montant donné"""
+        if self.type_remise == 'pourcentage':
+            return float(montant_total) * (float(self.valeur_remise) / 100)
+        else:
+            return min(float(self.valeur_remise), float(montant_total))
 class ParametresMounia(models.Model):
     nom_hotel = models.CharField(max_length=100, default="Mon app")
     adresse = models.TextField(default="Adresse par défaut")

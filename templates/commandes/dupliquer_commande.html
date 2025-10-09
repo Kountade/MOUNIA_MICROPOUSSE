@@ -1,0 +1,83 @@
+{% extends "base.html" %} {% load static %} {% block content %}
+<main id="main" class="main">
+  <div class="pagetitle">
+    <h1>Dupliquer la commande #{{ commande.id }}</h1>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}">Accueil</a></li>
+        <li class="breadcrumb-item">
+          <a href="{% url 'liste_commandes' %}">Commandes</a>
+        </li>
+        <li class="breadcrumb-item">
+          <a href="{% url 'detail_commande' commande.id %}">Détails</a>
+        </li>
+        <li class="breadcrumb-item active">Dupliquer</li>
+      </ol>
+    </nav>
+  </div>
+
+  <section class="section">
+    <div class="row justify-content-center">
+      <div class="col-lg-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Dupliquer la commande</h5>
+
+            <form method="post">
+              {% csrf_token %}
+
+              <div class="mb-3">
+                <label class="form-label">Client</label>
+                <select name="client" class="form-select" required>
+                  <option value="{{ commande.client.id }}" selected>
+                    {{ commande.client.nom }} (Client original)
+                  </option>
+                  {% for client in clients %} {% if client.id != commande.client.id %}
+                  <option value="{{ client.id }}">
+                    {{ client.nom }} - {{ client.ville }}
+                  </option>
+                  {% endif %} {% endfor %}
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Date de commande</label>
+                <input
+                  type="datetime-local"
+                  name="date_commande"
+                  class="form-control"
+                  value="{{ now|date:'Y-m-d\TH:i' }}"
+                  required
+                />
+              </div>
+
+              <div class="alert alert-info">
+                <h6>Produits à dupliquer :</h6>
+                <ul class="mb-0">
+                  {% for item in commande.items.all %}
+                  <li>
+                    {{ item.produit.nom }} - {{ item.quantite }} x {{ item.prix_unitaire }} MAD
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+
+              <div class="d-flex justify-content-between">
+                <a
+                  href="{% url 'detail_commande' commande.id %}"
+                  class="btn btn-secondary"
+                >
+                  <i class="bi bi-arrow-left"></i> Annuler
+                </a>
+                <button type="submit" class="btn btn-primary">
+                  <i class="bi bi-copy"></i> Dupliquer la commande
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock %}

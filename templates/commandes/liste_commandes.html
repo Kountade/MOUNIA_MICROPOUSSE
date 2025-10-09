@@ -99,7 +99,7 @@
                 <th>Ville</th>
                 <th>Date et Heure</th>
                 <th>Statut</th>
-                <th>Total (€)</th>
+                <th>Total (MAD)</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -123,8 +123,8 @@
                   <td>
                     {% if commande.statut == "En cours" %}
                       <span class="badge bg-warning text-dark">En cours</span>
-                    {% elif commande.statut == "Validée" %}
-                      <span class="badge bg-info text-white">Validée</span>
+                    {% elif commande.statut == "Confirmée" %}
+                      <span class="badge bg-info text-white">Confirmée</span>
                     {% elif commande.statut == "Livrée" %}
                       <span class="badge bg-success">Livrée</span>
                     {% elif commande.statut == "Annulée" %}
@@ -135,9 +135,9 @@
                   </td>
                   <td>
                     {% if commande.total %}
-                      {{ commande.total|floatformat:2 }} €
+                      {{ commande.total|floatformat:2 }} MAD
                     {% else %}
-                      0.00 €
+                      0.00 MAD
                     {% endif %}
                   </td>
                   <td>
@@ -147,6 +147,9 @@
                       </a>
                       <a href="{% url 'modifier_commande' commande.id %}" class="btn btn-sm btn-primary" title="Modifier">
                         <i class="bi bi-pencil"></i>
+                      </a>
+                      <a href="{% url 'dupliquer_commande' commande.id %}" class="btn btn-sm btn-secondary" title="Dupliquer">
+                        <i class="bi bi-copy"></i>
                       </a>
                       <form
                         method="post"
@@ -184,7 +187,7 @@
               <tr class="table-active">
                 <td colspan="5" class="text-end fw-bold">Total général :</td>
                 <td class="fw-bold">
-                  {{ total_general|floatformat:2 }} €
+                  {{ total_general|floatformat:2 }} MAD
                 </td>
                 <td></td>
               </tr>

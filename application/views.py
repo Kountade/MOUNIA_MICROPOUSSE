@@ -267,20 +267,51 @@ from .models import Commande
 from reportlab.pdfgen import canvas
 from io import BytesIO
 
+
+from decimal import Decimal
+
 def liste_commandes(request):
-    date_filtre = request.GET.get("date")
+    # Récupérer le filtre de date s'il existe
+    date_filtre = request.GET.get('date')
+    
     if date_filtre:
-        commandes = Commande.objects.filter(date_commande__date=date_filtre)
+        try:
+            # Convertir la date du format YYYY-MM-DD en objet date
+            date_obj = datetime.strptime(date_filtre, '%Y-%m-%d').date()
+            commandes = Commande.objects.filter(date_commande__date=date_obj)
+        except ValueError:
+            commandes = Commande.objects.all()
     else:
         commandes = Commande.objects.all()
+    
+    # Calculer le total général
+    total_general = Decimal('0.00')
+    for commande in commandes:
+        try:
+            total_general += Decimal(str(commande.total))
+        except:
+            continue
+    
+    context = {
+        'commandes': commandes,
+        'total_general': total_general,
+    }
+    
+    return render(request, "commandes/liste_commandes.html", context)
 
-    return render(request, "commandes/liste_commandes.html", {
-        "commandes": commandes,
-        "date_filtre": date_filtre
-    })
+
 def detail_commande(request, pk):
     commande = get_object_or_404(Commande, pk=pk)
-    return render(request, "commandes/detail_commande.html", {"commande": commande})
+    
+    # Calculer les totaux avec remise
+    context = {
+        "commande": commande,
+        "montant_remise": commande.montant_remise,
+        "total_avec_remise": commande.total_avec_remise,
+        "remise_appliquee": commande.remise_appliquee,
+    }
+    
+    return render(request, "commandes/detail_commande.html", context)
 
 
 # 📌 Créer une commande
@@ -497,136 +528,288 @@ from reportlab.lib.styles import getSampleStyleSheet
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
-def export_commande_bon_pdf(request, pk):
-    commande = get_object_or_404(Commande, pk=pk)
+from django.views.decorators.http import require_http_methods
+import json
 
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4,
-                            rightMargin=40, leftMargin=40,
-                            topMargin=40, bottomMargin=40)
-    elements = []
 
-    styles = getSampleStyleSheet()
-    styleN = styles["Normal"]
-    styleH = styles["Heading1"]
 
-    # === EN-TÊTE (Logo - Titre - Infos Entreprise) ===
-    logo_path = "static/assets/img/MOUNIA_LOGO.png"
+@require_http_methods(["POST"])
+def appliquer_remise_commande(request, pk):
+    """
+    Applique une remise à une commande spécifique via AJAX
+    """
     try:
-        logo = Image(logo_path, width=1.8*inch, height=1.8*inch)
-    except:
-        logo = Paragraph("<b>[Logo non trouvé]</b>", styleN)
-
-    titre = Paragraph("<b>BON DE LIVRAISION</b>", styleH)
-
-    infos_entreprise = Paragraph(
-         """<b>MOUNIA</b><br/>
-        Activité : Micropousse<br/>
-        Adresse : Douar Laarich, 44000 Essaouira<br/>
-        Téléphone : +212 620-270-420<br/>
-        Email : mounia.mand97@gmail.com""",
-        styleN
-    )
-
-    header_table = Table([[logo, titre, infos_entreprise]],
-                         colWidths=[120, 250, 150])
-    header_table.setStyle(TableStyle([
-        ("ALIGN", (1, 0), (1, 0), "CENTER"),  # centrer le titre
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN", (2, 0), (2, 0), "RIGHT"),   # infos entreprise à droite
-        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]))
-    elements.append(header_table)
-    elements.append(Spacer(1, 20))
-
-    # === INFOS COMMANDE ===
-    elements.append(Paragraph(f"<b>Numéro :</b> {commande.id}", styleN))
-    elements.append(Paragraph(f"<b>Date :</b> {commande.date_commande.strftime('%d/%m/%Y')}", styleN))
-    elements.append(Paragraph(f"<b>Statut :</b> {commande.statut}", styleN))
-    elements.append(Spacer(1, 12))
-
-    # === INFOS CLIENT ===
-    elements.append(Paragraph("<b>Informations du client</b>", styles["Heading2"]))
-    elements.append(Paragraph(f"Nom : {commande.client.nom}", styleN))
-    elements.append(Paragraph(f"ICE : {commande.client.ice}", styleN))
-    elements.append(Paragraph(f"Adresse : {commande.client.adresse}", styleN))
-    elements.append(Paragraph(f"Téléphone : {commande.client.telephone}", styleN))
-    elements.append(Paragraph(f"Email : {commande.client.email or 'Non renseigné'}", styleN))
-    elements.append(Spacer(1, 15))
-
-    # === TABLEAU PRODUITS ===
-    data = [["Produit", "Quantité", "Prix unitaire", "Sous-total"]]
-
-    for item in commande.items.all():
-        data.append([
-            item.produit.nom,
-            str(item.quantite),
-            f"{item.prix_unitaire:.2f}",   # pas de MAD
-            f"{item.sous_total:.2f}"       # pas de MAD
-        ])
-
-    table = Table(data, colWidths=[220, 80, 100, 100])
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#838586")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("ALIGN", (1, 1), (-1, -1), "CENTER"),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("GRID", (0, 0), (-1, -1), 1, colors.black),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    elements.append(table)
-    elements.append(Spacer(1, 20))
-
-    # === TOTAL A PART ===
-    total_table = Table([
-        ["", "", "Total commande :", f"{commande.total:.2f} MAD"]
-    ], colWidths=[220, 80, 100, 100])
-    total_table.setStyle(TableStyle([
-        ("FONTNAME", (2, 0), (3, 0), "Helvetica-Bold"),
-        ("ALIGN", (3, 0), (3, 0), "RIGHT"),
-        ("FONTSIZE", (2, 0), (3, 0), 11),
-        ("LINEABOVE", (2, 0), (3, 0), 1, colors.black),
-        ("LINEBELOW", (2, 0), (3, 0), 1, colors.black),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-    ]))
-    elements.append(total_table)
-        # === SIGNATURES ===
-    elements.append(Spacer(1, 60))  # espace avant signatures
-
-    signatures_table = Table([
-        ["Signature Client", "Cachet & Signature Entreprise"]
-    ], colWidths=[250, 250])
-
-    signatures_table.setStyle(TableStyle([
-        ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 11),
-        ("ALIGN", (0, 0), (0, 0), "LEFT"),
-        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
-        ("TOPPADDING", (0, 0), (-1, -1), 40),   # espace vertical pour signer
-    ]))
-
-    elements.append(signatures_table)
-
-    # === GÉNÉRATION PDF ===
-    doc.build(elements)
-    buffer.seek(0)
-
-    response = HttpResponse(buffer, content_type="application/pdf")
-    response['Content-Disposition'] = f'attachment; filename="bon_commande_{commande.id}.pdf"'
-    return response
-
-
+        commande = get_object_or_404(Commande, pk=pk)
+        
+        # Charger les données JSON
+        data = json.loads(request.body.decode('utf-8'))
+        type_remise = data.get('type_remise')
+        valeur_remise_str = data.get('valeur_remise')
+        
+        # Validation des données
+        if not type_remise or not valeur_remise_str:
+            return JsonResponse({
+                'success': False,
+                'message': 'Type de remise et valeur sont requis.'
+            })
+        
+        try:
+            valeur_remise = float(valeur_remise_str)
+        except (ValueError, TypeError):
+            return JsonResponse({
+                'success': False,
+                'message': 'La valeur de la remise doit être un nombre valide.'
+            })
+        
+        if valeur_remise <= 0:
+            return JsonResponse({
+                'success': False,
+                'message': 'La valeur de la remise doit être positive.'
+            })
+        
+        if type_remise == 'pourcentage' and valeur_remise > 100:
+            return JsonResponse({
+                'success': False,
+                'message': 'Le pourcentage de remise ne peut pas dépasser 100%.'
+            })
+        
+        # Appliquer la remise pour le mois de la commande
+        mois_commande = commande.date_commande.strftime('%Y-%m')
+        
+        remise, created = RemiseClient.objects.update_or_create(
+            client=commande.client,
+            mois_application=mois_commande,
+            defaults={
+                'type_remise': type_remise,
+                'valeur_remise': valeur_remise
+            }
+        )
+        
+        # Recalculer les totaux après application de la remise
+        commande = Commande.objects.get(pk=pk)  # Recharger pour avoir les nouvelles valeurs
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Remise appliquée avec succès!',
+            'total_avec_remise': f'{commande.total_avec_remise:.2f}',
+            'montant_remise': f'{commande.montant_remise:.2f}',
+            'total_original': f'{float(commande.total):.2f}',
+            'pourcentage_remise': commande.pourcentage_remise
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }, status=500)
+def dupliquer_commande(request, pk):
+    commande_originale = get_object_or_404(Commande, pk=pk)
     
+    if request.method == 'POST':
+        try:
+            # Créer une nouvelle commande
+            nouvelle_commande = Commande.objects.create(
+                client=commande_originale.client,
+                date_commande=timezone.now(),
+                statut="En cours"
+            )
+            
+            # Dupliquer les items
+            for item in commande_originale.items.all():
+                CommandeItem.objects.create(
+                    commande=nouvelle_commande,
+                    produit=item.produit,
+                    quantite=item.quantite,
+                    prix_unitaire=item.prix_unitaire
+                )
+            
+            messages.success(request, f'Commande dupliquée avec succès! Nouvelle commande #{nouvelle_commande.id}')
+            return redirect('detail_commande', pk=nouvelle_commande.id)
+            
+        except Exception as e:
+            messages.error(request, f'Erreur lors de la duplication: {str(e)}')
+            return redirect('detail_commande', pk=pk)
+    
+    # Afficher le formulaire de duplication
+    clients = Client.objects.all()
+    return render(request, 'commandes/dupliquer_commande.html', {
+        'commande': commande_originale,
+        'clients': clients
+    })
 
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import HttpResponse, JsonResponse
+from django.contrib import messages
+from django.utils import timezone
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+import json
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from decimal import Decimal
 
+def export_commande_bon_pdf(request, pk):
+    try:
+        commande = get_object_or_404(Commande, pk=pk)
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4,
+                                rightMargin=40, leftMargin=40,
+                                topMargin=40, bottomMargin=40)
+        elements = []
+
+        styles = getSampleStyleSheet()
+        styleN = styles["Normal"]
+        styleH = styles["Heading1"]
+
+        # === EN-TÊTE (Logo - Titre - Infos Entreprise) ===
+        logo_path = "static/assets/img/MOUNIA_LOGO.png"
+        try:
+            logo = Image(logo_path, width=1.8*inch, height=1.8*inch)
+        except:
+            logo = Paragraph("<b>[Logo non trouvé]</b>", styleN)
+
+        titre = Paragraph("<b>BON DE LIVRAISON</b>", styleH)
+
+        infos_entreprise = Paragraph(
+            """<b>MOUNIA</b><br/>
+            Activité : Micropousse<br/>
+            Adresse : Douar Laarich, 44000 Essaouira<br/>
+            Téléphone : +212 620-270-420<br/>
+            Email : mounia.mand97@gmail.com""",
+            styleN
+        )
+
+        header_table = Table([[logo, titre, infos_entreprise]],
+                             colWidths=[120, 250, 150])
+        header_table.setStyle(TableStyle([
+            ("ALIGN", (1, 0), (1, 0), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (2, 0), (2, 0), "RIGHT"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 20))
+
+        # === INFOS COMMANDE ===
+        elements.append(Paragraph(f"<b>Numéro :</b> {commande.id}", styleN))
+        elements.append(Paragraph(f"<b>Date :</b> {commande.date_commande.strftime('%d/%m/%Y')}", styleN))
+        elements.append(Paragraph(f"<b>Statut :</b> {commande.statut}", styleN))
+        elements.append(Spacer(1, 12))
+
+        # === INFOS CLIENT ===
+        elements.append(Paragraph("<b>Informations du client</b>", styles["Heading2"]))
+        elements.append(Paragraph(f"Nom : {commande.client.nom}", styleN))
+        if commande.client.ice:
+            elements.append(Paragraph(f"ICE : {commande.client.ice}", styleN))
+        elements.append(Paragraph(f"Adresse : {commande.client.adresse}", styleN))
+        elements.append(Paragraph(f"Téléphone : {commande.client.telephone}", styleN))
+        elements.append(Paragraph(f"Email : {commande.client.email or 'Non renseigné'}", styleN))
+        elements.append(Spacer(1, 15))
+
+        # === TABLEAU PRODUITS ===
+        data = [["Produit", "Quantité", "Prix unitaire", "Sous-total"]]
+
+        for item in commande.items.all():
+            data.append([
+                item.produit.nom,
+                str(item.quantite),
+                f"{float(item.prix_unitaire):.2f} MAD",
+                f"{float(item.sous_total):.2f} MAD"
+            ])
+
+        table = Table(data, colWidths=[220, 80, 100, 100])
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#838586")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 20))
+
+        # === TOTAUX AVEC REMISE ===
+        if commande.remise_appliquee:
+            # Afficher les totaux avec remise
+            data_totaux = [
+                ["", "", "Sous-total produits:", f"{float(commande.total_sans_livraison):.2f} MAD"],
+                ["", "", "Frais de livraison:", f"{float(commande.frais_livraison):.2f} MAD"],
+                ["", "", "Total avant remise:", f"{float(commande.total):.2f} MAD"],
+            ]
+            
+            # Ligne de remise
+            remise_type = "Remise" + (f" ({commande.remise_appliquee.valeur_remise}%)" 
+                                    if commande.remise_appliquee.type_remise == 'pourcentage' 
+                                    else "")
+            data_totaux.append(["", "", remise_type + ":", f"-{float(commande.montant_remise):.2f} MAD"])
+            
+            # Total final
+            data_totaux.append(["", "", "Total après remise:", f"{float(commande.total_avec_remise):.2f} MAD"])
+        else:
+            # Afficher les totaux sans remise
+            data_totaux = [
+                ["", "", "Total commande:", f"{float(commande.total):.2f} MAD"]
+            ]
+
+        total_table = Table(data_totaux, colWidths=[220, 80, 100, 100])
+        total_table.setStyle(TableStyle([
+            ("FONTNAME", (2, 0), (3, -1), "Helvetica-Bold"),
+            ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+            ("FONTSIZE", (2, 0), (3, -1), 11),
+            ("LINEABOVE", (2, -1), (3, -1), 1, colors.black),
+            ("LINEBELOW", (2, -1), (3, -1), 1, colors.black),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(total_table)
+        
+        # === SIGNATURES ===
+        elements.append(Spacer(1, 60))
+
+        signatures_table = Table([
+            ["Signature Client", "Cachet & Signature Entreprise"]
+        ], colWidths=[250, 250])
+
+        signatures_table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 11),
+            ("ALIGN", (0, 0), (0, 0), "LEFT"),
+            ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+            ("TOPPADDING", (0, 0), (-1, -1), 40),
+        ]))
+
+        elements.append(signatures_table)
+
+        # === GÉNÉRATION PDF ===
+        doc.build(elements)
+        buffer.seek(0)
+
+        response = HttpResponse(buffer, content_type="application/pdf")
+        response['Content-Disposition'] = f'attachment; filename="bon_livraison_{commande.id}.pdf"'
+        return response
+
+    except Exception as e:
+        # En cas d'erreur, retourner une réponse d'erreur
+        return HttpResponse(f"Erreur lors de la génération du PDF: {str(e)}", status=500)
 
 
 
@@ -1252,7 +1435,7 @@ def facture_client_mois_pdf(request):
         ])
         
         recap_data.append([
-            "", "", f"FRAIS LIVRAISON ({nombre_livraisons} livraisons):", 
+            "", "", f"FRAIS ({nombre_livraisons} livraisons):", 
             "", _format_money(frais_livraison_total), ""
         ])
         

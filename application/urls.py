@@ -24,18 +24,26 @@ urlpatterns = [
     path('produits/export/pdf/', views.exporter_produits_pdf, name='exporter_produits_pdf'),
  #   path('parametres/',  views.parametres_application, name='parametres_app'),
  
-    path("commandes/", views.liste_commandes, name="liste_commandes"),
+  
     path("commandes/nouvelle/", views.creer_commande, name="creer_commande"),
     path('commandes/modifier/<int:commande_id>/', views.modifier_commande, name='modifier_commande'),
     path("commandes/<int:pk>/supprimer/", views.supprimer_commande, name="supprimer_commande"),
     path("commandes/<int:commande_id>/ajouter-item/", views.ajouter_item, name="ajouter_item"),
-    path("commandes/<int:pk>/", views.detail_commande, name="detail_commande"),
-    path("commandes/<int:pk>/pdf/", views.export_commande_bon_pdf, name="export_commande_pdf"),
+   # path("commandes/<int:pk>/", views.detail_commande, name="detail_commande"),
+   
     path("commandes/<int:pk>/envoyer/", views.envoyer_bon_livraison, name="envoyer_bon_livraison_email"),
-    path("commandes/export_pdf/", views.export_commandes_pdf, name="export_commandes_pdf"),
+   
+   
+    path('commandes/', views.liste_commandes, name='liste_commandes'),
+    path('commande/<int:pk>/', views.detail_commande, name='detail_commande'),
+    path('commande/<int:pk>/pdf/', views.export_commande_bon_pdf, name='export_commande_bon_pdf'),  # AJOUTEZ CETTE LIGNE
+    path('commande/<int:pk>/appliquer-remise-commande/', views.appliquer_remise_commande, name='appliquer_remise_commande'),
+    path('commande/<int:pk>/dupliquer/', views.dupliquer_commande, name='dupliquer_commande'),
+    path('commandes/export_pdf/', views.export_commandes_pdf, name="export_commandes_pdf"),
     
-     #  factures
     
+    # ... autres URLs ...
+
     
     path('factures/', views.liste_factures, name='liste_factures'),
     path('factures/facture-mensuelle/', views.facture_client_mois_pdf, name='facture_client_mois_pdf'),
