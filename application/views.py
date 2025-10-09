@@ -1,7 +1,5 @@
 import datetime
-from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from .models import Client, ParametresMounia,  Produit, RemiseClient
 from .forms import ClientForm, CustomUserCreationForm, ParametresForm,ProduitForm, RemiseForm
@@ -9,23 +7,73 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 
 from django.conf.urls import handler404
-from django.shortcuts import render
 
 def custom_page_not_found_view(request, exception):
     return render(request, "404.html", status=404)
 
 handler404 = custom_page_not_found_view
 
+from .dashboard_stats import DashboardStats
 
-# Create your views here.
+import json
+from django.utils.safestring import mark_safe
+
 def home(request):
-    # Récupérer les 8 derniers clients
-   # derniers_clients = Client.objects.all().order_by('-date_inscription')[:8]
+    """Vue principale du tableau de bord"""
     
-    # Passer les clients au template
-    return render(request, 'index.html')
-
-
+    # Récupération des statistiques
+    stats = DashboardStats.get_stats_globales()
+    
+    # Préparation des données pour les graphiques
+    evolution_data = {
+        'mois': [item['mois'].strftime("%b %Y") for item in stats['evolution_clients']],
+        'clients': [item['total'] for item in stats['evolution_clients']],
+    }
+    
+    commandes_evolution = {
+        'semaines': [item['semaine'].strftime("%d/%m") for item in stats['evolution_commandes']],
+        'commandes': [item['total_commandes'] for item in stats['evolution_commandes']],
+        'ca': [item['total_ca'] for item in stats['evolution_commandes']],
+    }
+    
+    ca_mensuel = {
+        'mois': [item['mois'].strftime("%b") for item in stats['ca_par_mois']],
+        'montants': [item['ca_total'] for item in stats['ca_par_mois']],
+    }
+    
+    # Données pour le graphique circulaire des statuts de commandes
+    statuts_commandes = {
+        'labels': [item['statut'] for item in stats['commandes']['commandes_par_statut']],
+        'data': [item['total'] for item in stats['commandes']['commandes_par_statut']],
+    }
+    
+    # Statistiques rapides pour les cartes
+    stats_rapides = {
+        'total_clients': stats['clients']['total_clients'],
+        'clients_ce_mois': stats['clients']['clients_ce_mois'],
+        'total_produits': stats['produits']['total_produits'],
+        'produits_actifs': stats['produits']['produits_actifs'],
+        'prix_moyen_produits': stats['produits']['prix_moyen'],
+        'total_commandes': stats['commandes']['total_commandes'],
+        'ca_total': stats['commandes']['ca_total'],
+        'ca_ce_mois': stats['commandes']['ca_ce_mois'],
+        'commandes_cette_semaine': stats['commandes']['commandes_cette_semaine'],
+    }
+    
+    context = {
+        'stats_rapides': stats_rapides,
+        'stats_completes': stats,
+        'clients_par_ville': stats['clients']['clients_par_ville'],
+        'evolution_clients': stats['evolution_clients'],
+        'evolution_data': mark_safe(json.dumps(evolution_data)),
+        'commandes_evolution': mark_safe(json.dumps(commandes_evolution)),
+        'ca_mensuel': mark_safe(json.dumps(ca_mensuel)),
+        'statuts_commandes': mark_safe(json.dumps(statuts_commandes)),
+        'top_clients': stats['top_clients'],
+        'top_produits': stats['produits']['top_produits'],
+    }
+    
+    return render(request, 'index.html', context)
 
 
 # 🔹 READ (liste des clients)
