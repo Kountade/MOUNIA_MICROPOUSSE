@@ -56,7 +56,7 @@
               </div>
               {% endif %}
 
-              <!-- Nom - Champ élargi -->
+              <!-- Nom - Champ obligatoire -->
               <div class="col-md-8 mb-3">
                 <label for="id_nom" class="form-label fw-semibold">
                   <i class="bi bi-shop me-1"></i>Nom du Restaurant <span class="text-danger">*</span>
@@ -75,7 +75,7 @@
                 {% endif %}
               </div>
 
-              <!-- ICE - Champ élargi -->
+              <!-- ICE - Champ obligatoire -->
               <div class="col-md-8 mb-3">
                 <label for="id_ice" class="form-label fw-semibold">
                   <i class="bi bi-card-text me-1"></i>ICE <span class="text-danger">*</span>
@@ -95,7 +95,7 @@
                 <small class="form-text text-muted ms-4"><i class="bi bi-info-circle me-1"></i>15 chiffres uniquement</small>
               </div>
 
-              <!-- Responsable - Champ élargi -->
+              <!-- Responsable - Champ optionnel -->
               <div class="col-md-8 mb-3">
                 <label for="id_responsable" class="form-label fw-semibold">
                   <i class="bi bi-person me-1"></i>Responsable
@@ -105,7 +105,7 @@
                   <input type="text" name="responsable" id="id_responsable" 
                          class="form-control {% if form.responsable.errors %}is-invalid{% endif %}" 
                          value="{{ form.responsable.value|default:'' }}" 
-                         placeholder="Nom du responsable">
+                         placeholder="Nom du responsable (optionnel)">
                 </div>
                 {% if form.responsable.errors %}
                 <div class="invalid-feedback d-block">
@@ -114,7 +114,7 @@
                 {% endif %}
               </div>
 
-              <!-- Téléphone et Email sur la même ligne -->
+              <!-- Téléphone et Email sur la même ligne - Optionnels -->
               <div class="col-md-6 mb-3">
                 <label for="id_telephone" class="form-label fw-semibold">
                   <i class="bi bi-telephone me-1"></i>Téléphone
@@ -124,7 +124,7 @@
                   <input type="tel" name="telephone" id="id_telephone" 
                          class="form-control {% if form.telephone.errors %}is-invalid{% endif %}" 
                          value="{{ form.telephone.value|default:'' }}" 
-                         placeholder="Numéro de téléphone">
+                         placeholder="Numéro de téléphone (optionnel)">
                 </div>
                 {% if form.telephone.errors %}
                 <div class="invalid-feedback d-block">
@@ -142,7 +142,7 @@
                   <input type="email" name="email" id="id_email" 
                          class="form-control {% if form.email.errors %}is-invalid{% endif %}" 
                          value="{{ form.email.value|default:'' }}" 
-                         placeholder="adresse@email.com">
+                         placeholder="adresse@email.com (optionnel)">
                 </div>
                 {% if form.email.errors %}
                 <div class="invalid-feedback d-block">
@@ -151,7 +151,7 @@
                 {% endif %}
               </div>
 
-              <!-- Adresse - Pleine largeur -->
+              <!-- Adresse - Pleine largeur - Optionnel -->
               <div class="col-12 mb-3">
                 <label for="id_adresse" class="form-label fw-semibold">
                   <i class="bi bi-geo-alt me-1"></i>Adresse
@@ -160,7 +160,7 @@
                   <span class="input-group-text bg-light align-items-start pt-2"><i class="bi bi-geo-alt-fill text-primary"></i></span>
                   <textarea name="adresse" id="id_adresse" 
                             class="form-control {% if form.adresse.errors %}is-invalid{% endif %}" 
-                            rows="3" placeholder="Adresse complète du restaurant">{{ form.adresse.value|default:'' }}</textarea>
+                            rows="3" placeholder="Adresse complète du restaurant (optionnel)">{{ form.adresse.value|default:'' }}</textarea>
                 </div>
                 {% if form.adresse.errors %}
                 <div class="invalid-feedback d-block">
@@ -169,7 +169,7 @@
                 {% endif %}
               </div>
 
-              <!-- Ville et Prix de livraison sur la même ligne -->
+              <!-- Ville - Champ obligatoire -->
               <div class="col-md-6 mb-3">
                 <label for="id_ville" class="form-label fw-semibold">
                   <i class="bi bi-building me-1"></i>Ville <span class="text-danger">*</span>
@@ -188,6 +188,7 @@
                 {% endif %}
               </div>
 
+              <!-- Prix de livraison - Champ obligatoire -->
               <div class="col-md-6 mb-3">
                 <label for="id_prix_livraison" class="form-label fw-semibold">
                   <i class="bi bi-currency-euro me-1"></i>Prix de livraison (€) <span class="text-danger">*</span>

@@ -1476,7 +1476,7 @@ def facture_client_mois_pdf(request):
     elements.append(Paragraph("<b>INFORMATIONS CLIENT</b>", styles['Heading2']))
     client_info = [
         [Paragraph("<b>Nom:</b>", styles['Normal']), client.nom],
-        [Paragraph("<b>Ice:</b>", styles['Normal']), client.ice],
+        [Paragraph("<b>ICE:</b>", styles['Normal']), client.ice],
         [Paragraph("<b>Ville:</b>", styles['Normal']), client.ville],
         [Paragraph("<b>Prix livraison:</b>", styles['Normal']), f"{client.prix_livraison} MAD"],
         [Paragraph("<b>Période de facturation:</b>", styles['Normal']), mois_nom],
@@ -1580,7 +1580,7 @@ def facture_client_mois_pdf(request):
     # =====================
     # PIED DE PAGE
     # =====================
-    elements.append(Paragraph("Conditions de paiement: 30 jours nets", styles['Normal']))
+   
     elements.append(Paragraph("Merci pour votre confiance!", styles['Normal']))
     elements.append(Spacer(1, 10))
     elements.append(Paragraph("<i>MouniaMajid, ICE: 002947761000020, IF 50621840, TP 11000/2022/3069 Banque Credit du Maroc, IBAN: MA64 021 240 0000315027053382 95</i>", styles['Center']))

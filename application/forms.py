@@ -9,9 +9,8 @@ from django import forms
 from django.core.exceptions import ValidationError
 from .models import Client
 import re
-
 class ClientForm(forms.ModelForm):
-    # Rendre les champs obligatoires
+    # Ces 4 champs sont obligatoires
     nom = forms.CharField(
         max_length=150,
         required=True,
@@ -76,8 +75,8 @@ class ClientForm(forms.ModelForm):
                     raise ValidationError("Ce numéro ICE est déjà utilisé")
             
             return ice_clean
-        
-        return ice
+        else:
+            raise ValidationError("Le numéro ICE est obligatoire")
 
     def clean_prix_livraison(self):
         prix = self.cleaned_data.get('prix_livraison')
@@ -87,11 +86,17 @@ class ClientForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ClientForm, self).__init__(*args, **kwargs)
-        # Marquer les champs obligatoires avec un astérisque
-        for field in self.fields:
-            if self.fields[field].required:
-                self.fields[field].label += ' *'
-
+        # Marquer les 4 champs obligatoires avec un astérisque
+        required_fields = ['nom', 'ice', 'ville', 'prix_livraison']
+        for field_name in required_fields:
+            if field_name in self.fields:
+                self.fields[field_name].label += ' *'
+        
+        # Rendre les autres champs optionnels dans les placeholders
+        optional_fields = ['responsable', 'telephone', 'email', 'adresse']
+        for field_name in optional_fields:
+            if field_name in self.fields:
+                self.fields[field_name].required = False
 
 from django import forms
 from .models import Produit
