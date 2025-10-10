@@ -113,7 +113,7 @@
               </li>
                 <li class="nav-item">
                 <a data-bs-toggle="collapse" href="#submenu">
-                  <i class="fas fa-bars"></i>
+                  <i class="fas fa-shopping-cart"></i>
                  
                   <p>Gestion ventes </p>
                   <span class="caret"></span>
@@ -155,12 +155,7 @@
                       </a>
                     </li>
                  
-                   
-                    <li>
-                      <a href="">
-                        <span class="sub-item">Rapports</span>
-                      </a>
-                    </li>
+               
                   </ul>
                 </div>
               </li>
@@ -199,7 +194,7 @@
               
               <li class="nav-item">
                 <a data-bs-toggle="collapse" href="#forms">
-                  <i class="fas fa-pen-square"></i>
+                  <i class="fas fa-file-invoice"></i>
                   <p>Histoique des facture </p>
                   <span class="caret"></span>
                 </a>
@@ -245,22 +240,13 @@
                 </a>
                 <div class="collapse" id="maps">
                   <ul class="nav nav-collapse">
-                    <li>
-                      <a href="maps/googlemaps.html">
-                        <span class="sub-item">Historique Paitement</span>
-                      </a>
-                    </li>
-                    <li>
-                      <a href="maps/jsvectormap.html">
-                        <span class="sub-item">Solde des Compte</span>
-                      </a>
-                    </li>
+                 
                   </ul>
                 </div>
               </li>
         
               <li class="nav-item">
-                <a data-bs-toggle="collapse" href="#charts">
+                <a data-bs-toggle="collapse" href="#">
                   <i class="far fa-chart-bar"></i>
                   <p>Gestion  Compte</p>
                   <span class="caret"></span>
@@ -272,16 +258,65 @@
                   </ul>
                 </div>
               </li>
-              <li class="nav-item">
-                <a href="widgets.html">
-                  <i class="fas fa-desktop"></i>
-                  <p>Notifications</p>
-                  <span class="badge badge-success">4</span>
-                </a>
-              </li>
+            <li class="nav-item dropdown dropdown-notifications">
+    <a class="nav-link" href="#" data-bs-toggle="dropdown">
+        <i class="fas fa-bell"></i>
+        <p>Notifications</p>
+        <span class="badge badge-danger" id="notification-count" style="display: none;">0</span>
+    </a>
+
+    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications">
+        <li class="dropdown-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <span>Notifications</span>
+                <div>
+                    <a href="#" class="text-muted small me-2" id="refresh-notifications" title="Rafraîchir">
+                        <i class="fas fa-sync-alt"></i>
+                    </a>
+                    <a href="#" class="text-muted small" id="mark-all-read">
+                        Tout marquer comme lu
+                    </a>
+                </div>
+            </div>
+        </li>
+        
+        <li><hr class="dropdown-divider"></li>
+        
+        <!-- Statistiques du jour -->
+        <li class="notification-item" id="daily-stats-section" style="display: none;">
+            <div class="d-flex align-items-start w-100">
+                <i class="fas fa-chart-bar text-primary me-3 mt-1"></i>
+                <div class="flex-grow-1">
+                    <h6 id="stats-title" class="mb-1">Commandes du jour</h6>
+                    <p id="stats-content" class="small text-muted mb-0">Chargement...</p>
+                </div>
+            </div>
+        </li>
+        
+        <li><hr class="dropdown-divider" id="stats-divider" style="display: none;"></li>
+        
+        <!-- Liste des notifications -->
+        <div id="notifications-list" style="max-height: 300px; overflow-y: auto;">
+            <div class="text-center py-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <span class="text-muted ms-2">Chargement des notifications...</span>
+            </div>
+        </div>
+        
+        <li><hr class="dropdown-divider"></li>
+        
+        <li class="dropdown-footer text-center">
+            <a href="{% url 'liste_commandes' %}?today=1" class="btn btn-sm btn-outline-primary w-100">
+                <i class="fas fa-shopping-cart me-1"></i>Voir les commandes du jour
+            </a>
+        </li>
+    </ul>
+</li>
               <li class="nav-item">
                 <a href="{% url 'parametres_app' %}">
-                  <i class="fas fa-file"></i>
+                  <i class="fas fa-wrench"></i>
                   <p>Parametres</p>
                   <span class="badge badge-secondary">1</span>
                 </a>
