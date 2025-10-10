@@ -75,24 +75,24 @@
                 {% endif %}
               </div>
 
-              <!-- ICE - Champ obligatoire -->
+              <!-- ICE - Champ optionnel -->
               <div class="col-md-8 mb-3">
                 <label for="id_ice" class="form-label fw-semibold">
-                  <i class="bi bi-card-text me-1"></i>ICE <span class="text-danger">*</span>
+                  <i class="bi bi-card-text me-1"></i>ICE
                 </label>
                 <div class="input-group">
                   <span class="input-group-text bg-light"><i class="bi bi-credit-card text-primary"></i></span>
                   <input type="text" name="ice" id="id_ice" 
                          class="form-control {% if form.ice.errors %}is-invalid{% endif %}" 
                          value="{{ form.ice.value|default:'' }}" 
-                         maxlength="15" placeholder="15 chiffres" required>
+                         maxlength="15" placeholder="15 chiffres (optionnel)">
                 </div>
                 {% if form.ice.errors %}
                 <div class="invalid-feedback d-block">
                   {% for error in form.ice.errors %}{{ error }}{% endfor %}
                 </div>
                 {% endif %}
-                <small class="form-text text-muted ms-4"><i class="bi bi-info-circle me-1"></i>15 chiffres uniquement</small>
+                <small class="form-text text-muted ms-4"><i class="bi bi-info-circle me-1"></i>15 chiffres uniquement (optionnel)</small>
               </div>
 
               <!-- Responsable - Champ optionnel -->
@@ -191,7 +191,7 @@
               <!-- Prix de livraison - Champ obligatoire -->
               <div class="col-md-6 mb-3">
                 <label for="id_prix_livraison" class="form-label fw-semibold">
-                  <i class="bi bi-currency-euro me-1"></i>Prix de livraison (€) <span class="text-danger">*</span>
+                  <i class="bi bi-currency-euro me-1"></i>Prix de livraison (MAD) <span class="text-danger">*</span>
                 </label>
                 <div class="input-group">
                   <span class="input-group-text bg-light"><i class="bi bi-truck text-primary"></i></span>
@@ -199,14 +199,14 @@
                          class="form-control {% if form.prix_livraison.errors %}is-invalid{% endif %}" 
                          value="{{ form.prix_livraison.value|default:'' }}" 
                          step="0.01" min="0" placeholder="0.00" required>
-                  <span class="input-group-text bg-light">€</span>
+                  <span class="input-group-text bg-light">MAD</span>
                 </div>
                 {% if form.prix_livraison.errors %}
                 <div class="invalid-feedback d-block">
                   {% for error in form.prix_livraison.errors %}{{ error }}{% endfor %}
                 </div>
                 {% endif %}
-                <small class="form-text text-muted ms-4"><i class="bi bi-info-circle me-1"></i>Prix en euros (ex: 15.50)</small>
+                <small class="form-text text-muted ms-4"><i class="bi bi-info-circle me-1"></i>Prix en MAD (ex: 15.50)</small>
               </div>
 
               <!-- Boutons d'action -->

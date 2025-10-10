@@ -4,17 +4,23 @@ from django.core.exceptions import ValidationError
 
 class Client(models.Model):
     nom = models.CharField(max_length=150, verbose_name="Nom du restaurant")
-    responsable = models.CharField(max_length=100, verbose_name="Nom du responsable")
-    telephone = models.CharField(max_length=20, verbose_name="Téléphone", unique=True)
+    responsable = models.CharField(max_length=100, verbose_name="Nom du responsable", blank=True, null=True)
+    telephone = models.CharField(
+        max_length=20, 
+        verbose_name="Téléphone", 
+        unique=True, 
+        blank=True, 
+        null=True  # Ajouter null=True
+    )
     ice = models.CharField(
         max_length=15, 
         verbose_name="ICE", 
-        unique=True,
+        unique=False,
         blank=True,
         null=True
     )
     email = models.EmailField(blank=True, null=True, verbose_name="Email")
-    adresse = models.TextField(verbose_name="Adresse")
+    adresse = models.TextField(verbose_name="Adresse", blank=True, null=True)
     ville = models.CharField(max_length=100, verbose_name="Ville")
     prix_livraison = models.DecimalField(
         max_digits=10,
@@ -30,6 +36,7 @@ class Client(models.Model):
 
     def __str__(self):
         return f"{self.nom} - {self.ville} ({self.prix_livraison} MAD)"
+
 
 class Produit(models.Model):
     nom = models.CharField(max_length=100, unique=True)
@@ -50,6 +57,7 @@ class Produit(models.Model):
 from decimal import Decimal
 from django.db import models
 from django.utils import timezone
+
 
 class Commande(models.Model):
     STATUT_CHOICES = [
@@ -101,7 +109,7 @@ class Commande(models.Model):
         except:
             return Decimal('0.00')
 
-    # === PROPRIÉTÉS POUR LES REMISES ===
+    # === PROPRIÉTÉS POUR LES REMISES (CORRIGÉES) ===
     
     @property
     def remise_appliquee(self):
@@ -117,26 +125,41 @@ class Commande(models.Model):
 
     @property
     def montant_remise(self):
-        """Calcule le montant de la remise en MAD"""
+        """Calcule le montant de la remise en MAD (UNIQUEMENT sur les produits)"""
         remise = self.remise_appliquee
         if not remise:
             return Decimal('0.00')
         
         try:
             if remise.type_remise == 'pourcentage':
-                return self.total * (Decimal(str(remise.valeur_remise)) / Decimal('100'))
+                # Remise uniquement sur le total des produits
+                return self.total_sans_livraison * (Decimal(str(remise.valeur_remise)) / Decimal('100'))
             else:
-                return Decimal(str(remise.valeur_remise))
+                # Remise fixe, limitée au total des produits
+                return min(Decimal(str(remise.valeur_remise)), self.total_sans_livraison)
         except:
             return Decimal('0.00')
 
     @property
     def total_avec_remise(self):
-        """Calcule le total après remise"""
+        """Calcule le total après remise (produits remisés + frais livraison)"""
         try:
-            return max(self.total - self.montant_remise, Decimal('0.00'))
+            total_produits_remise = self.total_sans_livraison - self.montant_remise
+            # On s'assure que le total des produits après remise n'est pas négatif
+            total_produits_remise = max(total_produits_remise, Decimal('0.00'))
+            # On ajoute les frais de livraison (sans remise)
+            return total_produits_remise + self.frais_livraison
         except:
             return self.total
+
+    @property
+    def total_produits_apres_remise(self):
+        """Retourne le total des produits après application de la remise"""
+        try:
+            total_apres_remise = self.total_sans_livraison - self.montant_remise
+            return max(total_apres_remise, Decimal('0.00'))
+        except:
+            return self.total_sans_livraison
 
     @property
     def pourcentage_remise(self):
@@ -148,6 +171,7 @@ class Commande(models.Model):
             except:
                 return Decimal('0.00')
         return Decimal('0.00')
+
 
 class CommandeItem(models.Model):
     commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name="items")
@@ -224,15 +248,12 @@ class RemiseClient(models.Model):
         else:
             return f"{self.valeur_remise} MAD"
 
-    def calculer_remise(self, montant_total):
-        """Calcule le montant de la remise pour un montant donné"""
+    def calculer_remise(self, montant_total_produits):
+        """Calcule le montant de la remise pour un montant donné de produits"""
         if self.type_remise == 'pourcentage':
-            return float(montant_total) * (float(self.valeur_remise) / 100)
+            return float(montant_total_produits) * (float(self.valeur_remise) / 100)
         else:
-            return min(float(self.valeur_remise), float(montant_total))
-
-
-
+            return min(float(self.valeur_remise), float(montant_total_produits))
 
 
 class Notification(models.Model):

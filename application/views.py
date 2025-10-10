@@ -581,6 +581,7 @@ import json
 
 
 
+
 @require_http_methods(["POST"])
 def appliquer_remise_commande(request, pk):
     """
@@ -633,8 +634,8 @@ def appliquer_remise_commande(request, pk):
             }
         )
         
-        # Recalculer les totaux après application de la remise
-        commande = Commande.objects.get(pk=pk)  # Recharger pour avoir les nouvelles valeurs
+        # Recharger la commande pour avoir les nouvelles valeurs calculées
+        commande = Commande.objects.get(pk=pk)
         
         return JsonResponse({
             'success': True,
@@ -642,6 +643,8 @@ def appliquer_remise_commande(request, pk):
             'total_avec_remise': f'{commande.total_avec_remise:.2f}',
             'montant_remise': f'{commande.montant_remise:.2f}',
             'total_original': f'{float(commande.total):.2f}',
+            'total_produits': f'{float(commande.total_sans_livraison):.2f}',
+            'frais_livraison': f'{float(commande.frais_livraison):.2f}',
             'pourcentage_remise': commande.pourcentage_remise
         })
         
@@ -749,6 +752,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from decimal import Decimal
 
+
 def export_commande_bon_pdf(request, pk):
     try:
         commande = get_object_or_404(Commande, pk=pk)
@@ -777,7 +781,7 @@ def export_commande_bon_pdf(request, pk):
             Activité : Micropousse<br/>
             Adresse : Douar Laarich, 44000 Essaouira<br/>
             Téléphone : +212 620-270-420<br/>
-            Email : mounia.mand97@gmail.com""",
+            Email : mounia.majid97@gmail.com""",
             styleN
         )
 
@@ -838,28 +842,30 @@ def export_commande_bon_pdf(request, pk):
         elements.append(table)
         elements.append(Spacer(1, 20))
 
-        # === TOTAUX AVEC REMISE ===
+        # === TOTAUX AVEC REMISE (CORRIGÉ) ===
+        data_totaux = [
+            ["", "", "Sous-total produits:", f"{float(commande.total_sans_livraison):.2f} MAD"],
+        ]
+        
         if commande.remise_appliquee:
-            # Afficher les totaux avec remise
-            data_totaux = [
-                ["", "", "Sous-total produits:", f"{float(commande.total_sans_livraison):.2f} MAD"],
-                ["", "", "Frais de livraison:", f"{float(commande.frais_livraison):.2f} MAD"],
-                ["", "", "Total avant remise:", f"{float(commande.total):.2f} MAD"],
-            ]
+            # Ligne de remise (appliquée uniquement sur les produits)
+            remise_type = "Remise"
+            if commande.remise_appliquee.type_remise == 'pourcentage':
+                remise_type += f" ({commande.remise_appliquee.valeur_remise}%)"
+            else:
+                remise_type += f" ({commande.remise_appliquee.valeur_remise} MAD)"
             
-            # Ligne de remise
-            remise_type = "Remise" + (f" ({commande.remise_appliquee.valeur_remise}%)" 
-                                    if commande.remise_appliquee.type_remise == 'pourcentage' 
-                                    else "")
             data_totaux.append(["", "", remise_type + ":", f"-{float(commande.montant_remise):.2f} MAD"])
             
-            # Total final
-            data_totaux.append(["", "", "Total après remise:", f"{float(commande.total_avec_remise):.2f} MAD"])
-        else:
-            # Afficher les totaux sans remise
-            data_totaux = [
-                ["", "", "Total commande:", f"{float(commande.total):.2f} MAD"]
-            ]
+            # Sous-total après remise (uniquement sur les produits)
+            total_produits_apres_remise = commande.total_sans_livraison - commande.montant_remise
+            data_totaux.append(["", "", "Sous-total après remise:", f"{float(total_produits_apres_remise):.2f} MAD"])
+        
+        # Frais de livraison (toujours affiché)
+        data_totaux.append(["", "", "Frais de livraison:", f"{float(commande.frais_livraison):.2f} MAD"])
+        
+        # Total final
+        data_totaux.append(["", "", "Total:", f"{float(commande.total_avec_remise):.2f} MAD"])
 
         total_table = Table(data_totaux, colWidths=[220, 80, 100, 100])
         total_table.setStyle(TableStyle([
@@ -870,6 +876,8 @@ def export_commande_bon_pdf(request, pk):
             ("LINEBELOW", (2, -1), (3, -1), 1, colors.black),
             ("TOPPADDING", (0, 0), (-1, -1), 6),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            # Style pour la ligne de remise (texte en vert)
+            ("TEXTCOLOR", (2, 1), (3, 1), colors.green) if commande.remise_appliquee else ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
         ]))
         elements.append(total_table)
         
@@ -901,8 +909,6 @@ def export_commande_bon_pdf(request, pk):
     except Exception as e:
         # En cas d'erreur, retourner une réponse d'erreur
         return HttpResponse(f"Erreur lors de la génération du PDF: {str(e)}", status=500)
-
-
 
 def envoyer_bon_livraison(request, pk):
     commande = get_object_or_404(Commande, pk=pk)
@@ -1445,8 +1451,8 @@ def facture_client_mois_pdf(request):
         Paragraph("<b>MOUNIA MICROPOUSSE</b>", styles['Title']),
         Paragraph("Activité : Micropousse", styles['Normal']),
         Paragraph("Douar Laarich, 44000 Essaouira", styles['Normal']),
-        Paragraph("Tél: +212 620-270-420", styles['Normal']),
-        Paragraph("Email: mounia.mand97@gmail.com", styles['Normal']),
+        Paragraph("Tél: +212 702-704-420", styles['Normal']),
+        Paragraph("Email: mounia.majid97@gmail.com", styles['Normal']),
     ]
     
     # Informations facture
@@ -1458,7 +1464,7 @@ def facture_client_mois_pdf(request):
         Paragraph(f"<b>Référence:</b> {client.id}-{annee}{mois:02d}", styles['Normal']),
         Paragraph(f"<b>Nombre de commandes:</b> {commandes.count()}", styles['Normal']),
     ]
-    
+   
     # Tableau en-tête
     header_data = [[logo, infos_entreprise, infos_facture]]
     header_table = Table(header_data, colWidths=[2*inch, 3*inch, 3*inch])
@@ -1471,21 +1477,14 @@ def facture_client_mois_pdf(request):
     elements.append(Spacer(1, 10))
     
     # =====================
-    # INFORMATIONS CLIENT
+    # INFORMATIONS CLIENT (RÉDUITES)
     # =====================
     elements.append(Paragraph("<b>INFORMATIONS CLIENT</b>", styles['Heading2']))
     client_info = [
         [Paragraph("<b>Nom:</b>", styles['Normal']), client.nom],
         [Paragraph("<b>ICE:</b>", styles['Normal']), client.ice],
         [Paragraph("<b>Ville:</b>", styles['Normal']), client.ville],
-        [Paragraph("<b>Prix livraison:</b>", styles['Normal']), f"{client.prix_livraison} MAD"],
-        [Paragraph("<b>Période de facturation:</b>", styles['Normal']), mois_nom],
     ]
-    
-    if hasattr(client, 'adresse') and client.adresse:
-        client_info.insert(1, [Paragraph("<b>Adresse:</b>", styles['Normal']), client.adresse])
-    if hasattr(client, 'telephone') and client.telephone:
-        client_info.append([Paragraph("<b>Téléphone:</b>", styles['Normal']), client.telephone])
     
     client_table = Table(client_info, colWidths=[1.5*inch, 5*inch])
     client_table.setStyle(TableStyle([
@@ -1496,7 +1495,7 @@ def facture_client_mois_pdf(request):
     elements.append(Spacer(1, 20))
     
     # =====================
-    # RÉCAPITULATIF DE LA FACTURE
+    # RÉCAPITULATIF DE LA FACTURE (SIMPLIFIÉ)
     # =====================
     elements.append(Paragraph(f"<b>RÉCAPITULATIF DE LA FACTURE - {mois_nom.upper()}</b>", styles['Heading2']))
     
@@ -1504,74 +1503,78 @@ def facture_client_mois_pdf(request):
         elements.append(Paragraph("Aucune commande trouvée pour cette période.", styles['Normal']))
         elements.append(Spacer(1, 20))
     else:
-        # Tableau récapitulatif des commandes
+        # Tableau récapitulatif SIMPLIFIÉ (sans statut)
         recap_data = [
-            ["Date", "N° Commande", "Statut", "Produits", "Livraison", "Total (MAD)"]
+            ["Date", "N° Commande", "Produits", "Livraison", "Total (MAD)"]
         ]
         
         for commande in commandes:
             recap_data.append([
                 commande.date_commande.strftime("%d/%m/%Y"),
                 str(commande.id),
-                commande.statut,
                 _format_money(commande.total_sans_livraison),
                 _format_money(commande.frais_livraison),
                 _format_money(commande.total)
             ])
         
-        # Lignes de totaux détaillés
+        # Lignes de totaux détaillés - STRUCTURE CORRIGÉE
+        recap_data.append([
+            "", "", "", "", ""
+        ])
+        
         recap_data.append([
             "", "", "SOUS-TOTAL PRODUITS:", 
-            _format_money(total_produits), "", ""
+            "", _format_money(total_produits)
         ])
         
         recap_data.append([
             "", "", f"FRAIS ({nombre_livraisons} livraisons):", 
-            "", _format_money(frais_livraison_total), ""
+            "", _format_money(frais_livraison_total)
         ])
         
         recap_data.append([
             "", "", "SOUS-TOTAL:", 
-            "", "", _format_money(total_mois)
+            "", _format_money(total_mois)
         ])
         
         # Ligne de la remise si applicable
         if remise_appliquee > 0:
             recap_data.append([
                 "", "", "REMISE APPLIQUÉE:", 
-                "", "", Paragraph(f"-{_format_money(remise_appliquee)}", styles['Normal'])
+                "", f"-{_format_money(remise_appliquee)}"
             ])
         
-        # Ligne du total après remise - CORRIGÉE
+        # Ligne du total après remise
         recap_data.append([
             "", "", "TOTAL:", 
-            Paragraph(f"<b>{_format_money(total_apres_remise)} MAD TTC</b>", styles['Heading3'])
+            "", _format_money(total_apres_remise)
         ])
         
-        recap_table = Table(recap_data, colWidths=[1.2*inch, 1.0*inch, 1.5*inch, 1.0*inch, 1.0*inch, 1.0*inch])
+        recap_table = Table(recap_data, colWidths=[1.2*inch, 1.0*inch, 1.5*inch, 1.0*inch, 1.0*inch])
         recap_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c3e50')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('ALIGN', (3,1), (5,-1), 'RIGHT'),
+            ('ALIGN', (2,1), (4,-1), 'RIGHT'),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
             ('FONTSIZE', (0,0), (-1,-1), 8),
             ('BOTTOMPADDING', (0,0), (-1,0), 12),
             ('BACKGROUND', (0,1), (-1,-2), colors.HexColor('#f8f9fa')),
             ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
             # Style pour les lignes de totaux
-            ('FONTNAME', (0,-5), (-1,-5), 'Helvetica-Bold'),  # Sous-total produits
-            ('FONTNAME', (0,-4), (-1,-4), 'Helvetica-Bold'),  # Frais livraison
-            ('FONTNAME', (0,-3), (-1,-3), 'Helvetica-Bold'),  # Sous-total
-            ('BACKGROUND', (0,-3), (-1,-3), colors.HexColor('#e9ecef')),  # Fond sous-total
+            ('FONTNAME', (0,-6), (-1,-6), 'Helvetica-Bold'),  # Sous-total produits
+            ('FONTNAME', (0,-5), (-1,-5), 'Helvetica-Bold'),  # Frais livraison
+            ('FONTNAME', (0,-4), (-1,-4), 'Helvetica-Bold'),  # Sous-total
+            ('BACKGROUND', (0,-4), (-1,-4), colors.HexColor('#e9ecef')),  # Fond sous-total
             # Style pour la remise
-            ('TEXTCOLOR', (0,-2), (-1,-2), colors.green),  # Remise en vert
+            ('TEXTCOLOR', (0,-3), (-1,-3), colors.green),  # Remise en vert
+            ('FONTNAME', (0,-3), (-1,-3), 'Helvetica-Bold'),
+            # Style pour le total final
+            ('BACKGROUND', (0,-2), (-1,-2), colors.HexColor('#d4edda')),
+            ('FONTSIZE', (0,-2), (-1,-2), 10),
             ('FONTNAME', (0,-2), (-1,-2), 'Helvetica-Bold'),
-            # Style pour le total final - CORRIGÉ
-            ('SPAN', (3,-1), (5,-1)),  # Fusion des 3 dernières cellules pour le total
-            ('BACKGROUND', (3,-1), (5,-1), colors.HexColor('#d4edda')),
-            ('FONTSIZE', (3,-1), (5,-1), 10),
-            ('FONTNAME', (3,-1), (5,-1), 'Helvetica-Bold'),
+            # Fusion pour la ligne vide
+            ('SPAN', (0,-7), (-1,-7)),  # Fusion de toute la ligne vide
         ]))
         
         elements.append(recap_table)
@@ -1604,6 +1607,7 @@ def _format_money(value):
         except:
             value = Decimal("0.00")
     return f"{value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):.2f}"
+
 
 from django.core.cache import cache
 

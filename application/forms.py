@@ -9,23 +9,15 @@ from django import forms
 from django.core.exceptions import ValidationError
 from .models import Client
 import re
+
+
 class ClientForm(forms.ModelForm):
-    # Ces 4 champs sont obligatoires
+    # Seulement ces 3 champs sont obligatoires
     nom = forms.CharField(
         max_length=150,
         required=True,
         label="Nom du restaurant",
         error_messages={'required': 'Le nom du restaurant est obligatoire'}
-    )
-    
-    ice = forms.CharField(
-        max_length=15,
-        required=True,
-        label="ICE",
-        error_messages={
-            'required': 'Le numéro ICE est obligatoire',
-            'unique': 'Ce numéro ICE existe déjà'
-        }
     )
     
     ville = forms.CharField(
@@ -37,7 +29,7 @@ class ClientForm(forms.ModelForm):
     
     prix_livraison = forms.DecimalField(
         required=True,
-        label="Prix de livraison (en €)",
+        label="Prix de livraison (en MAD)",
         max_digits=10,
         decimal_places=2,
         min_value=0,
@@ -55,28 +47,27 @@ class ClientForm(forms.ModelForm):
     def clean_ice(self):
         ice = self.cleaned_data.get('ice')
         
-        # Validation du format ICE (15 chiffres pour le Maroc)
-        if ice:
-            # Supprimer les espaces et caractères spéciaux
-            ice_clean = re.sub(r'[^\d]', '', ice)
+        # ICE est optionnel, donc si vide on retourne None
+        if not ice:
+            return None
             
-            # Vérifier la longueur
-            if len(ice_clean) != 15:
-                raise ValidationError("Le numéro ICE doit contenir exactement 15 chiffres")
+        # Si ICE est fourni, on le valide
+        # Supprimer les espaces et caractères spéciaux
+        ice_clean = re.sub(r'[^\d]', '', ice)
+        
+        # Vérifier la longueur
+        if len(ice_clean) != 15:
+            raise ValidationError("Le numéro ICE doit contenir exactement 15 chiffres")
+        
+        # Vérifier l'unicité seulement si l'ICE est fourni
+        queryset = Client.objects.filter(ice=ice_clean)
+        if self.instance and self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
             
-            # Vérifier l'unicité
-            if Client.objects.filter(ice=ice_clean).exists():
-                if self.instance and self.instance.pk:
-                    # Pour la modification, vérifier si l'ICE appartient à un autre client
-                    if Client.objects.filter(ice=ice_clean).exclude(pk=self.instance.pk).exists():
-                        raise ValidationError("Ce numéro ICE est déjà utilisé par un autre client")
-                else:
-                    # Pour la création
-                    raise ValidationError("Ce numéro ICE est déjà utilisé")
-            
-            return ice_clean
-        else:
-            raise ValidationError("Le numéro ICE est obligatoire")
+        if queryset.exists():
+            raise ValidationError("Ce numéro ICE est déjà utilisé")
+        
+        return ice_clean
 
     def clean_prix_livraison(self):
         prix = self.cleaned_data.get('prix_livraison')
@@ -86,14 +77,14 @@ class ClientForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ClientForm, self).__init__(*args, **kwargs)
-        # Marquer les 4 champs obligatoires avec un astérisque
-        required_fields = ['nom', 'ice', 'ville', 'prix_livraison']
+        # Marquer seulement les 3 champs obligatoires avec un astérisque
+        required_fields = ['nom', 'ville', 'prix_livraison']
         for field_name in required_fields:
             if field_name in self.fields:
                 self.fields[field_name].label += ' *'
         
-        # Rendre les autres champs optionnels dans les placeholders
-        optional_fields = ['responsable', 'telephone', 'email', 'adresse']
+        # Rendre les autres champs optionnels
+        optional_fields = ['ice', 'responsable', 'telephone', 'email', 'adresse']
         for field_name in optional_fields:
             if field_name in self.fields:
                 self.fields[field_name].required = False
