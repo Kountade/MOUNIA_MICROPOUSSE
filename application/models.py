@@ -230,6 +230,33 @@ class RemiseClient(models.Model):
             return float(montant_total) * (float(self.valeur_remise) / 100)
         else:
             return min(float(self.valeur_remise), float(montant_total))
+
+
+
+
+
+class Notification(models.Model):
+    TYPE_CHOIX = [
+        ('commande_jour', 'Commandes du jour'),
+        ('statut', 'Changement de statut'),
+        ('rapport', 'Rapport quotidien'),
+        ('alerte', 'Alerte importante'),
+    ]
+    
+    titre = models.CharField(max_length=200)
+    message = models.TextField()
+    type_notification = models.CharField(max_length=20, choices=TYPE_CHOIX, default='commande_jour')
+    commande = models.ForeignKey(Commande, on_delete=models.CASCADE, null=True, blank=True)
+    lue = models.BooleanField(default=False)
+    date_creation = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Notification"
+        verbose_name_plural = "Notifications"
+        ordering = ['-date_creation']
+    
+    def __str__(self):
+        return f"{self.titre} - {self.date_creation.strftime('%d/%m/%Y %H:%M')}"
 class ParametresMounia(models.Model):
     nom_hotel = models.CharField(max_length=100, default="Mon app")
     adresse = models.TextField(default="Adresse par défaut")

@@ -1727,3 +1727,58 @@ def logout_utilisateur(request):
     logout(request)  # Déconnexion de l'utilisateur
     messages.success(request, 'Déconnexion réussie.')
     return redirect('login')  
+
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+import json
+from .notifications import NotificationManager
+
+def notifications_ajax(request):
+    """Endpoint AJAX pour récupérer les notifications"""
+    notifications_non_lues = NotificationManager.get_notifications_non_lues()
+    statistiques = NotificationManager.get_statistiques_jour()
+    
+    data = {
+        'notifications': [
+            {
+                'id': notif.id,
+                'titre': notif.titre,
+                'message': notif.message,
+                'type': notif.type_notification,
+                'date_creation': notif.date_creation.strftime('%H:%M'),
+                'lue': notif.lue
+            }
+            for notif in notifications_non_lues
+        ],
+        'statistiques': statistiques,
+        'total_non_lues': notifications_non_lues.count()
+    }
+    
+    return JsonResponse(data)
+
+@require_POST
+@csrf_exempt
+def marquer_notification_lue(request):
+    """Marque une notification comme lue"""
+    data = json.loads(request.body)
+    notification_id = data.get('notification_id')
+    
+    if notification_id:
+        success = NotificationManager.marquer_comme_lue(notification_id)
+        return JsonResponse({'success': success})
+    
+    return JsonResponse({'success': False})
+
+@require_POST
+@csrf_exempt
+def marquer_toutes_lues(request):
+    """Marque toutes les notifications comme lues"""
+    NotificationManager.marquer_toutes_comme_lues()
+    return JsonResponse({'success': True})
+
+def rafraichir_notifications_commandes(request):
+    """Force la création d'une notification pour les commandes du jour"""
+    NotificationManager.creer_notification_commandes_jour()
+    return JsonResponse({'success': True})

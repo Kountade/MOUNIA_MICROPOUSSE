@@ -66,6 +66,17 @@ urlpatterns = [
    
     path('', views.login_utilisateur, name='login'),
   
+  
+  
+  
+  
+  
+  
+  
+   path('notifications/ajax/', views.notifications_ajax, name='notifications_ajax'),
+    path('notifications/marquer-lue/', views.marquer_notification_lue, name='marquer_notification_lue'),
+    path('notifications/marquer-toutes-lues/', views.marquer_toutes_lues, name='marquer_toutes_lues'),
+    path('notifications/rafraichir/', views.rafraichir_notifications_commandes, name='rafraichir_notifications'),
 
 ]
 
