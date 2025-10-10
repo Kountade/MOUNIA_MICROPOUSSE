@@ -650,28 +650,68 @@ def appliquer_remise_commande(request, pk):
             'success': False,
             'message': f'Erreur: {str(e)}'
         }, status=500)
+
 def dupliquer_commande(request, pk):
     commande_originale = get_object_or_404(Commande, pk=pk)
     
     if request.method == 'POST':
         try:
-            # Créer une nouvelle commande
+            # Récupérer les données du formulaire
+            client_id = request.POST.get('client')
+            date_commande_str = request.POST.get('date_commande')
+            
+            # Validation
+            if not client_id:
+                messages.error(request, "Veuillez sélectionner un client")
+                return redirect('dupliquer_commande', pk=pk)
+                
+            if not date_commande_str:
+                messages.error(request, "Veuillez sélectionner une date")
+                return redirect('dupliquer_commande', pk=pk)
+            
+            # Convertir la date (autoriser les dates futures)
+            from datetime import datetime
+            try:
+                date_commande = datetime.strptime(date_commande_str, '%Y-%m-%d')
+                # SUPPRIMER la validation qui empêche les dates futures
+                # if date_commande.date() > timezone.now().date():
+                #     messages.warning(request, "La date ne peut pas être dans le futur")
+                #     return redirect('dupliquer_commande', pk=pk)
+            except ValueError:
+                messages.error(request, "Format de date invalide")
+                return redirect('dupliquer_commande', pk=pk)
+            
+            # Récupérer le client sélectionné
+            try:
+                client = Client.objects.get(id=client_id)
+            except Client.DoesNotExist:
+                messages.error(request, "Client sélectionné introuvable")
+                return redirect('dupliquer_commande', pk=pk)
+            
+            # Créer une nouvelle commande avec les nouvelles données
             nouvelle_commande = Commande.objects.create(
-                client=commande_originale.client,
-                date_commande=timezone.now(),
-                statut="En cours"
+                client=client,
+                date_commande=date_commande,
+                statut="En cours",
+                notes=f"Dupliquée de la commande #{commande_originale.id} du {commande_originale.date_commande.strftime('%d/%m/%Y')}"
             )
             
             # Dupliquer les items
+            items_dupliques = []
             for item in commande_originale.items.all():
-                CommandeItem.objects.create(
+                nouvel_item = CommandeItem.objects.create(
                     commande=nouvelle_commande,
                     produit=item.produit,
                     quantite=item.quantite,
                     prix_unitaire=item.prix_unitaire
                 )
+                items_dupliques.append(nouvel_item)
             
-            messages.success(request, f'Commande dupliquée avec succès! Nouvelle commande #{nouvelle_commande.id}')
+            messages.success(
+                request, 
+                f'Commande #{commande_originale.id} dupliquée avec succès! '
+                f'Nouvelle commande #{nouvelle_commande.id} créée pour {client.nom}'
+            )
             return redirect('detail_commande', pk=nouvelle_commande.id)
             
         except Exception as e:
@@ -680,9 +720,12 @@ def dupliquer_commande(request, pk):
     
     # Afficher le formulaire de duplication
     clients = Client.objects.all()
+    now = timezone.now().date()
+    
     return render(request, 'commandes/dupliquer_commande.html', {
         'commande': commande_originale,
-        'clients': clients
+        'clients': clients,
+        'now': now
     })
 
 from django.shortcuts import render, get_object_or_404, redirect

@@ -1,4 +1,7 @@
-{% extends "base.html" %} {% load static %} {% block content %}
+{% extends "base.html" %} 
+{% load static %} 
+
+{% block content %}
 <main id="main" class="main">
   <div class="pagetitle">
     <h1>Dupliquer la commande #{{ commande.id }}</h1>
@@ -18,60 +21,135 @@
 
   <section class="section">
     <div class="row justify-content-center">
-      <div class="col-lg-6">
+      <div class="col-lg-8">
         <div class="card">
           <div class="card-body">
-            <h5 class="card-title">Dupliquer la commande</h5>
+            <h5 class="card-title">
+              <i class="bi bi-copy me-2"></i>Dupliquer la commande
+            </h5>
 
-            <form method="post">
+            <!-- Messages -->
+            {% if messages %}
+            <div class="messages mb-4">
+              {% for message in messages %}
+              <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post" id="duplication-form">
               {% csrf_token %}
 
-              <div class="mb-3">
-                <label class="form-label">Client</label>
-                <select name="client" class="form-select" required>
-                  <option value="{{ commande.client.id }}" selected>
-                    {{ commande.client.nom }} (Client original)
-                  </option>
-                  {% for client in clients %} {% if client.id != commande.client.id %}
-                  <option value="{{ client.id }}">
-                    {{ client.nom }} - {{ client.ville }}
-                  </option>
-                  {% endif %} {% endfor %}
-                </select>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-bold">Client *</label>
+                    <select name="client" class="form-select" required id="client-select">
+                      <option value="">Sélectionnez un client</option>
+                      <option value="{{ commande.client.id }}" selected>
+                        {{ commande.client.nom }} - {{ commande.client.ville }} (Client original)
+                      </option>
+                      {% for client in clients %}
+                        {% if client.id != commande.client.id %}
+                        <option value="{{ client.id }}">
+                          {{ client.nom }} - {{ client.ville }} ({{ client.telephone }})
+                        </option>
+                        {% endif %}
+                      {% endfor %}
+                    </select>
+                    <div class="form-text">
+                      Le client sélectionné recevra la nouvelle commande
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-bold">Date de commande *</label>
+                    <input
+                      type="date"
+                      name="date_commande"
+                      class="form-control"
+                      value="{{ now|date:'Y-m-d' }}"
+                      required
+                      id="date-input"
+                    >
+                    <div class="form-text">
+                      Vous pouvez choisir n'importe quelle date, passée ou future
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div class="mb-3">
-                <label class="form-label">Date de commande</label>
-                <input
-                  type="datetime-local"
-                  name="date_commande"
-                  class="form-control"
-                  value="{{ now|date:'Y-m-d\TH:i' }}"
-                  required
-                />
+              <!-- Résumé de la commande originale -->
+              <div class="card border-info mb-4">
+                <div class="card-header bg-info text-white">
+                  <h6 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Résumé de la commande originale #{{ commande.id }}
+                  </h6>
+                </div>
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <p><strong>Date originale:</strong> {{ commande.date_commande|date:"d/m/Y" }}</p>
+                      <p><strong>Client original:</strong> {{ commande.client.nom }}</p>
+                      <p><strong>Statut:</strong> 
+                        <span class="badge bg-{% if commande.statut == 'Livrée' %}success{% else %}warning{% endif %}">
+                          {{ commande.statut }}
+                        </span>
+                      </p>
+                    </div>
+                    <div class="col-md-6">
+                      <p><strong>Total:</strong> {{ commande.total|floatformat:2 }} MAD</p>
+                      <p><strong>Nombre d'articles:</strong> {{ commande.items.count }}</p>
+                    </div>
+                  </div>
+                  
+                  <div class="mt-3">
+                    <h6>Articles à dupliquer :</h6>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered">
+                        <thead>
+                          <tr>
+                            <th>Produit</th>
+                            <th class="text-center">Quantité</th>
+                            <th class="text-end">Prix unitaire</th>
+                            <th class="text-end">Sous-total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% for item in commande.items.all %}
+                          <tr>
+                            <td>{{ item.produit.nom }}</td>
+                            <td class="text-center">{{ item.quantite }}</td>
+                            <td class="text-end">{{ item.prix_unitaire|floatformat:2 }} MAD</td>
+                            <td class="text-end">{{ item.sous_total|floatformat:2 }} MAD</td>
+                          </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div class="alert alert-info">
-                <h6>Produits à dupliquer :</h6>
-                <ul class="mb-0">
-                  {% for item in commande.items.all %}
-                  <li>
-                    {{ item.produit.nom }} - {{ item.quantite }} x {{ item.prix_unitaire }} MAD
-                  </li>
-                  {% endfor %}
-                </ul>
-              </div>
-
-              <div class="d-flex justify-content-between">
-                <a
-                  href="{% url 'detail_commande' commande.id %}"
-                  class="btn btn-secondary"
-                >
-                  <i class="bi bi-arrow-left"></i> Annuler
+              <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                <a href="{% url 'detail_commande' commande.id %}" class="btn btn-secondary">
+                  <i class="bi bi-arrow-left me-1"></i> Retour aux détails
                 </a>
-                <button type="submit" class="btn btn-primary">
-                  <i class="bi bi-copy"></i> Dupliquer la commande
-                </button>
+                
+                <div>
+                  <button type="button" class="btn btn-outline-info me-2" onclick="previsualiser()">
+                    <i class="bi bi-eye me-1"></i> Prévisualiser
+                  </button>
+                  <button type="submit" class="btn btn-primary" id="submit-btn">
+                    <i class="bi bi-copy me-1"></i> Créer la duplication
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -80,4 +158,138 @@
     </div>
   </section>
 </main>
+
+<script>
+function previsualiser() {
+    const clientSelect = document.getElementById('client-select');
+    const dateInput = document.getElementById('date-input');
+    const selectedClient = clientSelect.options[clientSelect.selectedIndex].text;
+    
+    // Formater la date pour l'affichage
+    const dateObj = new Date(dateInput.value);
+    const dateFormatee = dateObj.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+    
+    const aujourdHui = new Date();
+    const dateChoisie = new Date(dateInput.value);
+    let indicationDate = '';
+    
+    if (dateChoisie > aujourdHui) {
+        indicationDate = '\n⚠️ Attention : Date future sélectionnée';
+    } else if (dateChoisie < aujourdHoi) {
+        indicationDate = '\n📅 Date passée sélectionnée';
+    } else {
+        indicationDate = '\n📅 Date du jour sélectionnée';
+    }
+    
+    alert(`Prévisualisation :\n\n👤 Nouveau client : ${selectedClient}\n📅 Nouvelle date : ${dateFormatee}${indicationDate}\n\nLa commande sera créée avec ces paramètres.`);
+}
+
+// Validation côté client
+document.getElementById('duplication-form').addEventListener('submit', function(e) {
+    const clientSelect = document.getElementById('client-select');
+    const dateInput = document.getElementById('date-input');
+    
+    if (!clientSelect.value) {
+        e.preventDefault();
+        alert('Veuillez sélectionner un client');
+        clientSelect.focus();
+        return;
+    }
+    
+    if (!dateInput.value) {
+        e.preventDefault();
+        alert('Veuillez sélectionner une date');
+        dateInput.focus();
+        return;
+    }
+    
+    // Confirmation pour les dates futures
+    const aujourdHui = new Date();
+    const dateChoisie = new Date(dateInput.value);
+    
+    if (dateChoisie > aujourdHui) {
+        const confirmation = confirm(
+            '⚠️ Vous avez sélectionné une date future.\n\n' +
+            'Voulez-vous vraiment créer une commande avec une date future ?\n\n' +
+            'Date sélectionnée : ' + dateChoisie.toLocaleDateString('fr-FR') + '\n' +
+            'Date actuelle : ' + aujourdHui.toLocaleDateString('fr-FR')
+        );
+        
+        if (!confirmation) {
+            e.preventDefault();
+            dateInput.focus();
+            return;
+        }
+    }
+    
+    // Afficher un indicateur de chargement
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Création en cours...';
+});
+
+// Amélioration de l'expérience utilisateur
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.getElementById('date-input');
+    
+    // Focus sur le champ date pour faciliter la sélection
+    setTimeout(() => {
+        dateInput.focus();
+    }, 500);
+    
+    // Ajouter un sélecteur de date rapide
+    const dateContainer = dateInput.parentElement;
+    const quickDates = document.createElement('div');
+    quickDates.className = 'mt-2';
+    quickDates.innerHTML = `
+        <small class="text-muted me-3">Dates rapides :</small>
+        <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="setDate('today')">Aujourd'hui</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="setDate('tomorrow')">Demain</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDate('yesterday')">Hier</button>
+    `;
+    dateContainer.appendChild(quickDates);
+});
+
+function setDate(type) {
+    const dateInput = document.getElementById('date-input');
+    const aujourdHui = new Date();
+    let nouvelleDate = new Date();
+    
+    switch(type) {
+        case 'today':
+            // Déjà aujourd'hui par défaut
+            break;
+        case 'tomorrow':
+            nouvelleDate.setDate(aujourdHui.getDate() + 1);
+            break;
+        case 'yesterday':
+            nouvelleDate.setDate(aujourdHui.getDate() - 1);
+            break;
+    }
+    
+    // Formater la date pour l'input
+    const annee = nouvelleDate.getFullYear();
+    const mois = String(nouvelleDate.getMonth() + 1).padStart(2, '0');
+    const jour = String(nouvelleDate.getDate()).padStart(2, '0');
+    dateInput.value = `${annee}-${mois}-${jour}`;
+}
+</script>
+
+<style>
+.card-header.bg-info {
+    background: linear-gradient(45deg, #0dcaf0, #0aa2c0) !important;
+}
+.table th {
+    background-color: #f8f9fa;
+    color: #495057;
+}
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+</style>
 {% endblock %}
