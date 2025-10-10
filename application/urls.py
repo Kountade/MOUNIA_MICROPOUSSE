@@ -38,6 +38,7 @@ urlpatterns = [
     path('commande/<int:pk>/', views.detail_commande, name='detail_commande'),
     path('commande/<int:pk>/pdf/', views.export_commande_bon_pdf, name='export_commande_bon_pdf'),  # AJOUTEZ CETTE LIGNE
     path('commande/<int:pk>/appliquer-remise-commande/', views.appliquer_remise_commande, name='appliquer_remise_commande'),
+    path('commande/<int:pk>/supprimer-remise-commande/', views.supprimer_remise_commande, name='supprimer_remise_commande'),
     path('commande/<int:pk>/dupliquer/', views.dupliquer_commande, name='dupliquer_commande'),
     path('commandes/export_pdf/', views.export_commandes_pdf, name="export_commandes_pdf"),
     

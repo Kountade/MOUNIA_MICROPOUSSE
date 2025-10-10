@@ -653,6 +653,44 @@ def appliquer_remise_commande(request, pk):
             'success': False,
             'message': f'Erreur: {str(e)}'
         }, status=500)
+        
+        
+
+@require_http_methods(["POST"])
+def supprimer_remise_commande(request, pk):
+    """
+    Supprime la remise d'une commande via AJAX
+    """
+    try:
+        commande = get_object_or_404(Commande, pk=pk)
+        
+        # Trouver et supprimer la remise pour le mois de la commande
+        mois_commande = commande.date_commande.strftime('%Y-%m')
+        
+        try:
+            remise = RemiseClient.objects.get(
+                client=commande.client,
+                mois_application=mois_commande
+            )
+            remise.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Remise supprimée avec succès!',
+                'total_sans_remise': f'{commande.total:.2f}'
+            })
+            
+        except RemiseClient.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Aucune remise trouvée pour ce mois.'
+            })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }, status=500)
 
 def dupliquer_commande(request, pk):
     commande_originale = get_object_or_404(Commande, pk=pk)
@@ -780,7 +818,7 @@ def export_commande_bon_pdf(request, pk):
             """<b>MOUNIA</b><br/>
             Activité : Micropousse<br/>
             Adresse : Douar Laarich, 44000 Essaouira<br/>
-            Téléphone : +212 620-270-420<br/>
+            Téléphone : +212 702-704-420<br/>
             Email : mounia.majid97@gmail.com""",
             styleN
         )
@@ -802,7 +840,7 @@ def export_commande_bon_pdf(request, pk):
         # === INFOS COMMANDE ===
         elements.append(Paragraph(f"<b>Numéro :</b> {commande.id}", styleN))
         elements.append(Paragraph(f"<b>Date :</b> {commande.date_commande.strftime('%d/%m/%Y')}", styleN))
-        elements.append(Paragraph(f"<b>Statut :</b> {commande.statut}", styleN))
+    
         elements.append(Spacer(1, 12))
 
         # === INFOS CLIENT ===
@@ -865,7 +903,7 @@ def export_commande_bon_pdf(request, pk):
         data_totaux.append(["", "", "Frais de livraison:", f"{float(commande.frais_livraison):.2f} MAD"])
         
         # Total final
-        data_totaux.append(["", "", "Total:", f"{float(commande.total_avec_remise):.2f} MAD"])
+        data_totaux.append(["", "", "Total:", f"{float(commande.total_avec_remise):.2f} TTC"])
 
         total_table = Table(data_totaux, colWidths=[220, 80, 100, 100])
         total_table.setStyle(TableStyle([
