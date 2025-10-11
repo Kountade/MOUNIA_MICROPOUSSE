@@ -2,6 +2,11 @@ from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
+
+from django.db import models
+from django.utils import timezone
+from decimal import Decimal
+
 class Client(models.Model):
     nom = models.CharField(max_length=150, verbose_name="Nom du restaurant")
     responsable = models.CharField(max_length=100, verbose_name="Nom du responsable", blank=True, null=True)
@@ -10,7 +15,7 @@ class Client(models.Model):
         verbose_name="Téléphone", 
         unique=True, 
         blank=True, 
-        null=True  # Ajouter null=True
+        null=True
     )
     ice = models.CharField(
         max_length=15, 
@@ -33,6 +38,76 @@ class Client(models.Model):
         verbose_name = "Client (Restaurant)"
         verbose_name_plural = "Clients (Restaurants)"
         ordering = ["nom"]
+
+    def get_commandes_par_mois(self, annee, mois):
+        """Récupère toutes les commandes pour un mois donné"""
+        return self.commandes.filter(
+            date_commande__year=annee,
+            date_commande__month=mois
+        )
+
+    def get_total_mois(self, annee, mois):
+        """Calcule le total ACTUEL des commandes pour un mois donné"""
+        commandes_mois = self.get_commandes_par_mois(annee, mois)
+        total = Decimal('0.00')
+        for commande in commandes_mois:
+            # Utiliser total_avec_remise pour avoir le montant final
+            total += commande.total_avec_remise
+        return total
+
+    def get_statut_paiement_mois(self, annee, mois):
+        """Récupère ou met à jour le statut de paiement pour un mois"""
+        mois_str = f"{annee}-{str(mois).zfill(2)}"
+        
+        # Calculer le total ACTUEL du mois
+        total_mois_actuel = self.get_total_mois(annee, mois)
+        
+        try:
+            paiement = Paiement.objects.get(client=self, mois=mois_str)
+            
+            # Mettre à jour le montant_du si nécessaire
+            if paiement.montant_du != total_mois_actuel:
+                paiement.montant_du = total_mois_actuel
+                
+                # Recalculer le statut basé sur le nouveau montant
+                if paiement.montant_paye >= total_mois_actuel:
+                    paiement.statut = 'paye'
+                elif paiement.montant_paye > 0:
+                    paiement.statut = 'partiel'
+                else:
+                    paiement.statut = 'non_paye'
+                    
+                paiement.save()
+            
+            return paiement
+            
+        except Paiement.DoesNotExist:
+            # Créer un nouveau paiement seulement s'il y a des commandes
+            if total_mois_actuel > 0:
+                return Paiement.objects.create(
+                    client=self,
+                    mois=mois_str,
+                    montant_du=total_mois_actuel,
+                    montant_paye=0,
+                    statut='non_paye'
+                )
+            return None
+
+    def get_historique_paiements(self):
+        """Retourne l'historique complet des paiements"""
+        return self.paiements.all().order_by('-mois')
+
+    def forcer_mise_a_jour_paiements(self):
+        """Force la mise à jour de tous les paiements pour ce client"""
+        from datetime import datetime
+        maintenant = timezone.now()
+        
+        # Mettre à jour les 12 derniers mois
+        for i in range(12):
+            mois_date = maintenant - timezone.timedelta(days=30*i)
+            annee = mois_date.year
+            mois = mois_date.month
+            self.get_statut_paiement_mois(annee, mois)
 
     def __str__(self):
         return f"{self.nom} - {self.ville} ({self.prix_livraison} MAD)"
@@ -108,6 +183,20 @@ class Commande(models.Model):
             return Decimal(str(self.client.prix_livraison))
         except:
             return Decimal('0.00')
+    @property
+    def montant_paye(self):
+        return sum(paiement.montant for paiement in self.paiements.all())
+
+    @property
+    def statut_paiement(self):
+        total = self.total_avec_remise
+        paye = self.montant_paye
+        if paye == 0:
+            return 'non_paye'
+        elif paye < total:
+            return 'partiellement_paye'
+        elif paye >= total:
+            return 'paye'
 
     # === PROPRIÉTÉS POUR LES REMISES (CORRIGÉES) ===
     
@@ -179,7 +268,7 @@ class CommandeItem(models.Model):
     quantite = models.PositiveIntegerField(default=1)
     prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
     date_ajout = models.DateTimeField(auto_now_add=True)
-
+    
     class Meta:
         verbose_name = "Item de commande"
         verbose_name_plural = "Items de commande"
@@ -297,5 +386,45 @@ class ParametresMounia(models.Model):
         
         
 
+
+
+
+class Paiement(models.Model):
+    STATUT_PAIEMENT_CHOICES = [
+        ('paye', 'Payé'),
+        ('partiel', 'Partiellement payé'),
+        ('non_paye', 'Non payé'),
+    ]
+    
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="paiements")
+    mois = models.CharField(max_length=7, verbose_name="Mois (YYYY-MM)")
+    montant_du = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant dû")
+    montant_paye = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Montant payé")
+    statut = models.CharField(max_length=20, choices=STATUT_PAIEMENT_CHOICES, default='non_paye')
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Paiement"
+        verbose_name_plural = "Paiements"
+        unique_together = ['client', 'mois']
+        ordering = ['-mois']
+
+    def __str__(self):
+        return f"Paiement {self.client.nom} - {self.mois}"
+
+    @property
+    def reste_a_payer(self):
+        return self.montant_du - self.montant_paye
+
+    def save(self, *args, **kwargs):
+        # Mise à jour automatique du statut
+        if self.montant_paye >= self.montant_du:
+            self.statut = 'paye'
+        elif self.montant_paye > 0:
+            self.statut = 'partiel'
+        else:
+            self.statut = 'non_paye'
+        super().save(*args, **kwargs)
 
 

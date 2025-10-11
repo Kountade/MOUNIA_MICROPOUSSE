@@ -1,0 +1,84 @@
+{% extends 'base.html' %} {% block content %}
+<div class="container-fluid">
+  <h1 class="mb-4">{{ title }}</h1>
+
+  <div class="card">
+    <div class="card-header">
+      <h5 class="card-title mb-0">
+        Liste des Clients - {{ now|date:"d/m/Y" }}
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-striped table-hover">
+          <thead class="table-dark">
+            <tr>
+              <th>Client</th>
+              <th>Ville</th>
+              <th>Téléphone</th>
+              <th>Responsable</th>
+              {% for mois in mois_liste %}
+              <th class="text-center">{{ mois.nom }}</th>
+              {% endfor %}
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for client in clients %}
+            <tr>
+              <td>
+                <strong>{{ client.nom }}</strong>
+                {% if client.email %}
+                <br /><small class="text-muted">{{ client.email }}</small>
+                {% endif %}
+              </td>
+              <td>{{ client.ville }}</td>
+              <td>{{ client.telephone|default:"-" }}</td>
+              <td>{{ client.responsable|default:"-" }}</td>
+
+              {% for paiement_info in client.paiements_mois %}
+              <td class="text-center">
+                {% if paiement_info.paiement %}
+                <span
+                  class="badge {% if paiement_info.paiement.statut == 'paye' %}bg-success {% elif paiement_info.paiement.statut == 'partiel' %}bg-warning {% else %}bg-danger{% endif %}"
+                >
+                  {{ paiement_info.paiement.get_statut_display }}
+                </span>
+                <br />
+                <small class="text-muted">
+                  {{ paiement_info.paiement.montant_paye }}/{{ paiement_info.paiement.montant_du }} MAD
+                </small>
+                {% else %}
+                <span class="badge bg-secondary">-</span>
+                <br />
+                <small class="text-muted">Aucune commande</small>
+                {% endif %}
+              </td>
+              {% endfor %}
+
+              <td>
+                <a
+                  href="{% url 'detail_clientpai' client.id %}"
+                  class="btn btn-primary btn-sm"
+                >
+                  <i class="fas fa-history"></i> Historique
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td
+                colspan="{{ mois_liste|length|add:5 }}"
+                class="text-center text-muted"
+              >
+                Aucun client trouvé
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

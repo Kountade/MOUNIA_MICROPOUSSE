@@ -1,7 +1,7 @@
 import datetime
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
-from .models import Client, ParametresMounia,  Produit, RemiseClient
+from .models import Client, Paiement, ParametresMounia,  Produit, RemiseClient
 from .forms import ClientForm, CustomUserCreationForm, ParametresForm,ProduitForm, RemiseForm
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
@@ -1682,10 +1682,202 @@ def parametres_application(request):
 
 
 
+def liste_clients(request):
+    clients = Client.objects.all().order_by('nom')
+    return render(request, 'factues/liste_clients.html', {'clients': clients})
+
+def historique_factures_client(request, client_id):
+    client = get_object_or_404(Client, id=client_id)
+    commandes = Commande.objects.filter(client=client).select_related('client').prefetch_related('paiements').order_by('date_commande')
+    
+    # Précharger les remises pour ce client pour tous les mois concernés?
+    # On va plutôt laisser la propriété remise_appliquee faire son travail, mais on peut précharger toutes les remises du client et les mettre en cache dans le client?
+    # Pour l'instant, on fait sans.
+
+    groupes = {}
+    for commande in commandes:
+        mois = commande.date_commande.strftime('%Y-%m')
+        if mois not in groupes:
+            groupes[mois] = {
+                'commandes': [],
+                'total_mois': Decimal('0.00'),
+                'total_paye_mois': Decimal('0.00'),
+            }
+        groupes[mois]['commandes'].append(commande)
+        groupes[mois]['total_mois'] += commande.total_avec_remise
+        groupes[mois]['total_paye_mois'] += commande.montant_paye
+
+    data_mois = []
+    for mois, data in groupes.items():
+        total_mois = data['total_mois']
+        total_paye = data['total_paye_mois']
+        reste = total_mois - total_paye
+        if total_paye == 0:
+            statut = 'non_paye'
+        elif reste > 0:
+            statut = 'partiellement_paye'
+        else:
+            statut = 'paye'
+
+        data_mois.append({
+            'mois': mois,
+            'total_mois': total_mois,
+            'total_paye': total_paye,
+            'reste': reste,
+            'statut': statut
+        })
+
+    # Trier par mois décroissant
+    data_mois.sort(key=lambda x: x['mois'], reverse=True)
+
+    return render(request, 'historique_factures_client.html', {'client': client, 'data_mois': data_mois})
+
+
+
+from django.views.generic import ListView, DetailView
+from django.shortcuts import get_object_or_404, render
+from django.db.models import Q
+from datetime import datetime, timedelta
+from decimal import Decimal
 
 
 
 
+
+from django.shortcuts import render
+from django.utils import timezone
+from datetime import datetime, timedelta
+from .models import Client, Paiement
+
+def liste_clientspai(request):
+    # Récupérer tous les clients
+    clients = Client.objects.all().order_by('nom')
+    
+    # Obtenir les 6 derniers mois
+    mois_courant = timezone.now()
+    mois_liste = []
+    for i in range(6):
+        mois = mois_courant - timedelta(days=30*i)
+        mois_liste.append({
+            'annee': mois.year,
+            'mois': mois.month,
+            'nom': mois.strftime('%B %Y'),
+            'mois_str': mois.strftime('%Y-%m')
+        })
+    
+    # FORCER la mise à jour de tous les paiements avant l'affichage
+    for client in clients:
+        for mois_info in mois_liste:
+            # Cette appel va recalculer et mettre à jour le montant_du
+            client.get_statut_paiement_mois(mois_info['annee'], mois_info['mois'])
+    
+    # Préparer les données pour chaque client
+    clients_data = []
+    for client in clients:
+        client_info = {
+            'id': client.id,
+            'nom': client.nom,
+            'ville': client.ville,
+            'telephone': client.telephone,
+            'responsable': client.responsable,
+            'email': client.email,
+            'paiements_mois': []
+        }
+        
+        # Ajouter les statuts de paiement pour chaque mois
+        for mois_info in mois_liste:
+            paiement = client.get_statut_paiement_mois(mois_info['annee'], mois_info['mois'])
+            client_info['paiements_mois'].append({
+                'mois': mois_info['mois_str'],
+                'nom_mois': mois_info['nom'],
+                'paiement': paiement
+            })
+        
+        clients_data.append(client_info)
+    
+    return render(request, 'factures/liste_clients.html', {
+        'clients': clients_data,
+        'mois_liste': mois_liste,
+        'title': 'Liste des Clients',
+        'now': timezone.now()
+    })
+  
+
+from django.shortcuts import render, get_object_or_404
+
+def detail_clientpai(request, client_id):
+    client = get_object_or_404(Client, id=client_id)
+    
+    # Obtenir les 12 derniers mois
+    mois_courant = timezone.now()
+    historique = []
+    
+    for i in range(12):
+        mois_date = mois_courant - timedelta(days=30*i)
+        annee = mois_date.year
+        mois = mois_date.month
+        mois_str = f"{annee}-{str(mois).zfill(2)}"
+        
+        # Commandes du mois
+        commandes = client.get_commandes_par_mois(annee, mois)
+        total_mois = client.get_total_mois(annee, mois)
+        paiement = client.get_statut_paiement_mois(annee, mois)
+        
+        historique.append({
+            'mois': mois_str,
+            'nom_mois': mois_date.strftime('%B %Y'),
+            'commandes': commandes,
+            'total_mois': total_mois,
+            'paiement': paiement,
+            'nombre_commandes': commandes.count()
+        })
+    
+    return render(request, 'factures/detail_client.html', {
+        'client': client,
+        'historique': historique,
+        'title': f'Historique - {client.nom}'
+    })
+
+
+from django.shortcuts import render, get_object_or_404, redirect
+from decimal import Decimal
+
+def maj_paiement(request, client_id, mois):
+    client = get_object_or_404(Client, id=client_id)
+    paiement = get_object_or_404(Paiement, client=client, mois=mois)
+    
+    if request.method == 'POST':
+        montant_paye = Decimal(request.POST.get('montant_paye', 0))
+        paiement.montant_paye = montant_paye
+        paiement.save()
+        
+        # Rediriger vers la page détail du client
+        return redirect('detail_clientpai', client_id=client_id)
+    
+    return render(request, 'factures/maj_paiement.html', {
+        'client': client,
+        'paiement': paiement,
+        'title': f'Mise à jour paiement - {mois}'
+    })
+
+
+def mettre_a_jour_paiement(request, client_id, mois):
+    """Vue pour mettre à jour le statut de paiement"""
+    client = get_object_or_404(Client, id=client_id)
+    paiement = get_object_or_404(Paiement, client=client, mois=mois)
+    
+    if request.method == 'POST':
+        montant_paye = Decimal(request.POST.get('montant_paye', 0))
+        paiement.montant_paye = montant_paye
+        paiement.save()
+        
+        # Rediriger vers la page détail du client
+        return redirect('detail_client', pk=client_id)
+    
+    return render(request, 'factres/maj_paiement.html', {
+        'client': client,
+        'paiement': paiement
+    })
 
 
 

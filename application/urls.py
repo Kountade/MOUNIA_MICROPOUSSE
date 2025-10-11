@@ -53,9 +53,12 @@ urlpatterns = [
     
     
     
+   # path('clients/', views.liste_clients, name='liste_clients'),
+path('clients/<int:client_id>/historique/', views.historique_factures_client, name='historique_factures_client'),
     
-    
-    
+     path('factures/paiment/', views.liste_clientspai, name='liste_clientspai'),
+    path('factures/paiment/<int:client_id>/', views.detail_clientpai, name='detail_clientpai'),
+    path('factures/paiment/<int:client_id>/paiement/<str:mois>/', views.maj_paiement, name='maj_paiement'),
     
     
    path('utilisateur/ajouter/', views.ajouter_utilisateur, name='ajouter_utilisateur'),
