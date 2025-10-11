@@ -1360,8 +1360,18 @@ def liste_factures(request):
     }
     return render(request, 'factures/liste_factures.html', context)
 
+
 def appliquer_remise(request, client_id, mois_filtre):
     client = get_object_or_404(Client, id=client_id)
+    
+    # Calculer le total des produits pour information
+    annee, mois = map(int, mois_filtre.split('-'))
+    commandes = Commande.objects.filter(
+        client=client,
+        date_commande__year=annee,
+        date_commande__month=mois
+    )
+    total_produits = sum(commande.total_sans_livraison for commande in commandes)
     
     # Récupérer la remise existante ou initialiser une nouvelle
     try:
@@ -1378,6 +1388,22 @@ def appliquer_remise(request, client_id, mois_filtre):
             nouvelle_remise = form.save(commit=False)
             nouvelle_remise.client = client
             nouvelle_remise.mois_application = mois_filtre
+            
+            # Validation : la remise fixe ne peut pas dépasser le total des produits
+            if (nouvelle_remise.type_remise == 'fixe' and 
+                nouvelle_remise.valeur_remise > total_produits):
+                messages.error(
+                    request, 
+                    f"La remise fixe ne peut pas dépasser le total des produits ({total_produits:.2f} MAD)"
+                )
+                return render(request, 'factures/appliquer_remise.html', {
+                    'form': form,
+                    'client': client,
+                    'mois_filtre': mois_filtre,
+                    'mois_nom': datetime.strptime(mois_filtre, "%Y-%m").strftime("%B %Y"),
+                    'total_produits': total_produits
+                })
+            
             nouvelle_remise.save()
             
             messages.success(request, "Remise appliquée avec succès!")
@@ -1389,8 +1415,11 @@ def appliquer_remise(request, client_id, mois_filtre):
         'form': form,
         'client': client,
         'mois_filtre': mois_filtre,
-        'mois_nom': datetime.strptime(mois_filtre, "%Y-%m").strftime("%B %Y")
+        'mois_nom': datetime.strptime(mois_filtre, "%Y-%m").strftime("%B %Y"),
+        'total_produits': total_produits
     })
+
+
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
@@ -1429,29 +1458,38 @@ def facture_client_mois_pdf(request):
             date_commande__month=mois
         ).order_by('date_commande')
         
-        # Calculer les totaux
-        total_mois = sum(commande.total for commande in commandes)
-        total_produits = sum(commande.total_sans_livraison for commande in commandes)
+        # Calculer les totaux SANS REMISE
+        total_produits_sans_remise = sum(commande.total_sans_livraison for commande in commandes)
         nombre_livraisons = commandes.count()
         frais_livraison_total = sum(commande.frais_livraison for commande in commandes)
+        total_sans_remise = total_produits_sans_remise + frais_livraison_total
         
-        # Récupérer la remise
+        # Récupérer et appliquer la remise UNIQUEMENT sur les produits
         remise_appliquee = Decimal('0.00')
+        total_produits_apres_remise = total_produits_sans_remise
+        total_apres_remise = total_sans_remise
+        
         try:
             remise = RemiseClient.objects.get(
                 client=client,
                 mois_application=mois_filtre
             )
-            if remise.type_remise == 'pourcentage':
-                remise_appliquee = total_mois * (remise.valeur_remise / 100)
-            else:
-                remise_appliquee = remise.valeur_remise
             
-            remise_appliquee = min(remise_appliquee, total_mois)
-            total_apres_remise = total_mois - remise_appliquee
+            # Calcul de la remise UNIQUEMENT sur les produits
+            if remise.type_remise == 'pourcentage':
+                remise_appliquee = total_produits_sans_remise * (remise.valeur_remise / Decimal('100'))
+            else:
+                remise_appliquee = min(remise.valeur_remise, total_produits_sans_remise)
+            
+            # Appliquer la remise uniquement aux produits
+            total_produits_apres_remise = total_produits_sans_remise - remise_appliquee
+            # Les frais de livraison restent inchangés
+            total_apres_remise = total_produits_apres_remise + frais_livraison_total
+            
         except RemiseClient.DoesNotExist:
-            total_apres_remise = total_mois
             remise_appliquee = Decimal('0.00')
+            total_produits_apres_remise = total_produits_sans_remise
+            total_apres_remise = total_sans_remise
         
     except (Client.DoesNotExist, ValueError):
         return HttpResponse("Client ou mois invalide")
@@ -1515,7 +1553,7 @@ def facture_client_mois_pdf(request):
     elements.append(Spacer(1, 10))
     
     # =====================
-    # INFORMATIONS CLIENT (RÉDUITES)
+    # INFORMATIONS CLIENT
     # =====================
     elements.append(Paragraph("<b>INFORMATIONS CLIENT</b>", styles['Heading2']))
     client_info = [
@@ -1533,7 +1571,7 @@ def facture_client_mois_pdf(request):
     elements.append(Spacer(1, 20))
     
     # =====================
-    # RÉCAPITULATIF DE LA FACTURE (SIMPLIFIÉ)
+    # RÉCAPITULATIF DE LA FACTURE
     # =====================
     elements.append(Paragraph(f"<b>RÉCAPITULATIF DE LA FACTURE - {mois_nom.upper()}</b>", styles['Heading2']))
     
@@ -1541,7 +1579,7 @@ def facture_client_mois_pdf(request):
         elements.append(Paragraph("Aucune commande trouvée pour cette période.", styles['Normal']))
         elements.append(Spacer(1, 20))
     else:
-        # Tableau récapitulatif SIMPLIFIÉ (sans statut)
+        # Tableau récapitulatif des commandes
         recap_data = [
             ["Date", "N° Commande", "Produits", "Livraison", "Total (MAD)"]
         ]
@@ -1555,40 +1593,41 @@ def facture_client_mois_pdf(request):
                 _format_money(commande.total)
             ])
         
-        # Lignes de totaux détaillés - STRUCTURE CORRIGÉE
+        # Lignes de totaux détaillés - NOUVELLE STRUCTURE
+        recap_data.append(["", "", "", "", ""])
+        
+        # Total produits avant remise
         recap_data.append([
-            "", "", "", "", ""
+            "", "", "TOTAL PRODUITS:", 
+            "", _format_money(total_produits_sans_remise)
         ])
         
-        recap_data.append([
-            "", "", "SOUS-TOTAL PRODUITS:", 
-            "", _format_money(total_produits)
-        ])
+        # Ligne de remise si applicable
+        if remise_appliquee > 0:
+            recap_data.append([
+                "", "", "REMISE SUR PRODUITS:", 
+                "", f"-{_format_money(remise_appliquee)}"
+            ])
+            
+            # Total produits après remise
+            recap_data.append([
+                "", "", "TOTAL PRODUITS APRÈS REMISE:", 
+                "", _format_money(total_produits_apres_remise)
+            ])
         
+        # Frais de livraison
         recap_data.append([
-            "", "", f"FRAIS ({nombre_livraisons} livraisons):", 
+            "", "", f"FRAIS LIVRAISON ({nombre_livraisons} livraisons):", 
             "", _format_money(frais_livraison_total)
         ])
         
+        # Total final
         recap_data.append([
-            "", "", "SOUS-TOTAL:", 
-            "", _format_money(total_mois)
-        ])
-        
-        # Ligne de la remise si applicable
-        if remise_appliquee > 0:
-            recap_data.append([
-                "", "", "REMISE APPLIQUÉE:", 
-                "", f"-{_format_money(remise_appliquee)}"
-            ])
-        
-        # Ligne du total après remise
-        recap_data.append([
-            "", "", "TOTAL:", 
+            "", "", "TOTAL À PAYER:", 
             "", _format_money(total_apres_remise)
         ])
         
-        recap_table = Table(recap_data, colWidths=[1.2*inch, 1.0*inch, 1.5*inch, 1.0*inch, 1.0*inch])
+        recap_table = Table(recap_data, colWidths=[1.2*inch, 1.0*inch, 2.0*inch, 1.0*inch, 1.0*inch])
         recap_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c3e50')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
@@ -1599,20 +1638,28 @@ def facture_client_mois_pdf(request):
             ('BOTTOMPADDING', (0,0), (-1,0), 12),
             ('BACKGROUND', (0,1), (-1,-2), colors.HexColor('#f8f9fa')),
             ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+            
             # Style pour les lignes de totaux
-            ('FONTNAME', (0,-6), (-1,-6), 'Helvetica-Bold'),  # Sous-total produits
-            ('FONTNAME', (0,-5), (-1,-5), 'Helvetica-Bold'),  # Frais livraison
-            ('FONTNAME', (0,-4), (-1,-4), 'Helvetica-Bold'),  # Sous-total
-            ('BACKGROUND', (0,-4), (-1,-4), colors.HexColor('#e9ecef')),  # Fond sous-total
+            ('FONTNAME', (0,-6), (-1,-6), 'Helvetica-Bold'),  # Total produits
+            ('BACKGROUND', (0,-6), (-1,-6), colors.HexColor('#e9ecef')),
+            
             # Style pour la remise
-            ('TEXTCOLOR', (0,-3), (-1,-3), colors.green),  # Remise en vert
+            ('TEXTCOLOR', (0,-5), (-1,-5), colors.green),
+            ('FONTNAME', (0,-5), (-1,-5), 'Helvetica-Bold'),
+            
+            # Style pour total produits après remise
+            ('FONTNAME', (0,-4), (-1,-4), 'Helvetica-Bold'),
+            
+            # Style pour frais livraison
             ('FONTNAME', (0,-3), (-1,-3), 'Helvetica-Bold'),
+            
             # Style pour le total final
             ('BACKGROUND', (0,-2), (-1,-2), colors.HexColor('#d4edda')),
             ('FONTSIZE', (0,-2), (-1,-2), 10),
             ('FONTNAME', (0,-2), (-1,-2), 'Helvetica-Bold'),
+            
             # Fusion pour la ligne vide
-            ('SPAN', (0,-7), (-1,-7)),  # Fusion de toute la ligne vide
+            ('SPAN', (0,-7), (-1,-7)),
         ]))
         
         elements.append(recap_table)
@@ -1634,6 +1681,19 @@ def facture_client_mois_pdf(request):
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+def _format_money(value):
+    """Format Decimal to string with 2 decimals (safe)."""
+    if value is None:
+        value = Decimal("0.00")
+    if not isinstance(value, Decimal):
+        try:
+            value = Decimal(str(value))
+        except:
+            value = Decimal("0.00")
+    return f"{value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):.2f}"
+
+
 
 def _format_money(value):
     """Format Decimal to string with 2 decimals (safe)."""
@@ -1680,11 +1740,6 @@ def parametres_application(request):
 
 
 
-
-
-def liste_clients(request):
-    clients = Client.objects.all().order_by('nom')
-    return render(request, 'factues/liste_clients.html', {'clients': clients})
 
 def historique_factures_client(request, client_id):
     client = get_object_or_404(Client, id=client_id)
