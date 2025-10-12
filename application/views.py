@@ -1435,14 +1435,25 @@ from .models import Commande, Client
 
 
 # views.py
-
-
 def facture_client_mois_pdf(request):
     """Génère une facture mensuelle pour un client spécifique"""
     
-    # Récupérer les paramètres
+    from io import BytesIO
+    from decimal import Decimal
+    from datetime import datetime
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import inch
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Image, Spacer
+    from django.http import HttpResponse
+
+    def _format_money(val):
+        return f"{val:.2f}"
+
     client_id = request.GET.get("client")
-    mois_filtre = request.GET.get("mois")  # Format: YYYY-MM
+    mois_filtre = request.GET.get("mois")
     
     if not client_id or not mois_filtre:
         return HttpResponse("Paramètres manquants: client et mois requis")
@@ -1451,45 +1462,33 @@ def facture_client_mois_pdf(request):
         client = Client.objects.get(id=client_id)
         annee, mois = map(int, mois_filtre.split('-'))
         
-        # Récupérer les commandes du client pour le mois spécifié
         commandes = Commande.objects.filter(
             client=client,
             date_commande__year=annee,
             date_commande__month=mois
         ).order_by('date_commande')
         
-        # Calculer les totaux SANS REMISE
         total_produits_sans_remise = sum(commande.total_sans_livraison for commande in commandes)
         nombre_livraisons = commandes.count()
         frais_livraison_total = sum(commande.frais_livraison for commande in commandes)
         total_sans_remise = total_produits_sans_remise + frais_livraison_total
         
-        # Récupérer et appliquer la remise UNIQUEMENT sur les produits
         remise_appliquee = Decimal('0.00')
         total_produits_apres_remise = total_produits_sans_remise
         total_apres_remise = total_sans_remise
         
         try:
-            remise = RemiseClient.objects.get(
-                client=client,
-                mois_application=mois_filtre
-            )
-            
-            # Calcul de la remise UNIQUEMENT sur les produits
+            remise = RemiseClient.objects.get(client=client, mois_application=mois_filtre)
             if remise.type_remise == 'pourcentage':
                 remise_appliquee = total_produits_sans_remise * (remise.valeur_remise / Decimal('100'))
             else:
                 remise_appliquee = min(remise.valeur_remise, total_produits_sans_remise)
             
-            # Appliquer la remise uniquement aux produits
             total_produits_apres_remise = total_produits_sans_remise - remise_appliquee
-            # Les frais de livraison restent inchangés
             total_apres_remise = total_produits_apres_remise + frais_livraison_total
             
         except RemiseClient.DoesNotExist:
-            remise_appliquee = Decimal('0.00')
-            total_produits_apres_remise = total_produits_sans_remise
-            total_apres_remise = total_sans_remise
+            pass
         
     except (Client.DoesNotExist, ValueError):
         return HttpResponse("Client ou mois invalide")
@@ -1499,90 +1498,55 @@ def facture_client_mois_pdf(request):
     elements = []
     styles = getSampleStyleSheet()
     
-    # Styles personnalisés
-    styles.add(ParagraphStyle(
-        name='RightAlign',
-        parent=styles['Normal'],
-        alignment=TA_RIGHT,
-    ))
+    styles.add(ParagraphStyle(name='RightAlign', parent=styles['Normal'], alignment=TA_RIGHT))
+    styles.add(ParagraphStyle(name='Center', parent=styles['Normal'], alignment=TA_CENTER))
+    styles.add(ParagraphStyle(name='Small', parent=styles['Normal'], fontSize=8, leading=10))
+    styles.add(ParagraphStyle(name='SmallBold', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold'))
+    styles.add(ParagraphStyle(name='TotalStyle', parent=styles['Normal'], fontSize=18, fontName='Helvetica-Bold', alignment=TA_CENTER))
     
-    styles.add(ParagraphStyle(
-        name='Center',
-        parent=styles['Normal'],
-        alignment=TA_CENTER,
-    ))
-    
-    # =====================
-    # EN-TÊTE DE LA FACTURE
-    # =====================
-    
-    # Logo
     try:
-        logo = Image("static/assets/img/MOUNIA_LOGO.png", width=1.5*inch, height=1.5*inch)
+        logo = Image("static/assets/img/MOUNIA_LOGO.png", width=1.2*inch, height=1.2*inch)
     except:
         logo = Paragraph("<b>MOUNIA MICROPOUSSE</b>", styles['Title'])
     
-    # Informations entreprise
     infos_entreprise = [
-        Paragraph("<b>MOUNIA MICROPOUSSE</b>", styles['Title']),
-        Paragraph("Activité : Micropousse", styles['Normal']),
-        Paragraph("Douar Laarich, 44000 Essaouira", styles['Normal']),
-        Paragraph("Tél: +212 702-704-420", styles['Normal']),
-        Paragraph("Email: mounia.majid97@gmail.com", styles['Normal']),
+        Paragraph("<b>MOUNIA MICROPOUSSE</b>", styles['Heading2']),
+        Paragraph("Micropousse • Douar Laarich, 44000 Essaouira", styles['Small']),
+        Paragraph("Tél: +212 702-704-420 • Email: mounia.majid97@gmail.com", styles['Small']),
     ]
     
-    # Informations facture
     mois_nom = datetime(annee, mois, 1).strftime("%B %Y").capitalize()
-    infos_facture = [
-        Paragraph("<b>FACTURE MENSUELLE</b>", styles['Title']),
-        Paragraph(f"<b>Période:</b> {mois_nom}", styles['Normal']),
-        Paragraph(f"<b>Date d'émission:</b> {datetime.now().strftime('%d/%m/%Y')}", styles['Normal']),
-        Paragraph(f"<b>Référence:</b> {client.id}-{annee}{mois:02d}", styles['Normal']),
-        Paragraph(f"<b>Nombre de commandes:</b> {commandes.count()}", styles['Normal']),
+    infos_client = [
+        Paragraph("<b>INFORMATIONS CLIENT</b>", styles['SmallBold']),
+        Paragraph(f"<b>Nom:</b> {client.nom}", styles['Small']),
+        Paragraph(f"<b>ICE:</b> {client.ice}", styles['Small']),
+        Paragraph(f"<b>Ville:</b> {client.ville}", styles['Small']),
     ]
-   
-    # Tableau en-tête
-    header_data = [[logo, infos_entreprise, infos_facture]]
-    header_table = Table(header_data, colWidths=[2*inch, 3*inch, 3*inch])
+    
+    infos_facture = [
+        Paragraph("<b>FACTURE MENSUELLE</b>", styles['Heading2']),
+        Paragraph(f"<b>Période:</b> {mois_nom}", styles['Small']),
+        Paragraph(f"<b>Date:</b> {datetime.now().strftime('%d/%m/%Y')}", styles['Small']),
+        Paragraph(f"<b>Réf:</b> {client.id}-{annee}{mois:02d}", styles['Small']),
+        Paragraph(f"<b>Commandes:</b> {commandes.count()}", styles['Small']),
+    ]
+    
+    header_data = [[logo, infos_entreprise, infos_client, infos_facture]]
+    header_table = Table(header_data, colWidths=[1.5*inch, 2.5*inch, 2*inch, 2*inch])
     header_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 20),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN', (0,0), (0,0), 'CENTER'),
+        ('LINEBELOW', (0,0), (-1,0), 1, colors.black),
     ]))
     elements.append(header_table)
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 15))
     
-    # =====================
-    # INFORMATIONS CLIENT
-    # =====================
-    elements.append(Paragraph("<b>INFORMATIONS CLIENT</b>", styles['Heading2']))
-    client_info = [
-        [Paragraph("<b>Nom:</b>", styles['Normal']), client.nom],
-        [Paragraph("<b>ICE:</b>", styles['Normal']), client.ice],
-        [Paragraph("<b>Ville:</b>", styles['Normal']), client.ville],
-    ]
-    
-    client_table = Table(client_info, colWidths=[1.5*inch, 5*inch])
-    client_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-    ]))
-    elements.append(client_table)
-    elements.append(Spacer(1, 20))
-    
-    # =====================
-    # RÉCAPITULATIF DE LA FACTURE
-    # =====================
-    elements.append(Paragraph(f"<b>RÉCAPITULATIF DE LA FACTURE - {mois_nom.upper()}</b>", styles['Heading2']))
+    elements.append(Paragraph(f"<b>DÉTAIL DES COMMANDES - {mois_nom.upper()}</b>", styles['Heading2']))
     
     if not commandes.exists():
         elements.append(Paragraph("Aucune commande trouvée pour cette période.", styles['Normal']))
-        elements.append(Spacer(1, 20))
     else:
-        # Tableau récapitulatif des commandes
-        recap_data = [
-            ["Date", "N° Commande", "Produits", "Livraison", "Total (MAD)"]
-        ]
+        recap_data = [["Date", "N° Commande", "Produits", "Livraison", "Total (MAD)"]]
         
         for commande in commandes:
             recap_data.append([
@@ -1593,94 +1557,67 @@ def facture_client_mois_pdf(request):
                 _format_money(commande.total)
             ])
         
-        # Lignes de totaux détaillés - NOUVELLE STRUCTURE
-        recap_data.append(["", "", "", "", ""])
-        
-        # Total produits avant remise
-        recap_data.append([
-            "", "", "TOTAL PRODUITS:", 
-            "", _format_money(total_produits_sans_remise)
-        ])
-        
-        # Ligne de remise si applicable
+        recap_data.append(["", "", "TOTAL PRODUITS:", "", _format_money(total_produits_sans_remise)])
         if remise_appliquee > 0:
-            recap_data.append([
-                "", "", "REMISE SUR PRODUITS:", 
-                "", f"-{_format_money(remise_appliquee)}"
-            ])
-            
-            # Total produits après remise
-            recap_data.append([
-                "", "", "TOTAL PRODUITS APRÈS REMISE:", 
-                "", _format_money(total_produits_apres_remise)
-            ])
-        
-        # Frais de livraison
+            recap_data.append(["", "", "REMISE SUR PRODUITS:", "", f"-{_format_money(remise_appliquee)}"])
+            recap_data.append(["", "", "TOTAL APRÈS REMISE:", "", _format_money(total_produits_apres_remise)])
+        recap_data.append(["", "", f"FRAIS LIVRAISON ({nombre_livraisons} livraisons):", "", _format_money(frais_livraison_total)])
+
+        # ✅ TOTAL À PAYER — fusionné, centré, encadré et en grand
         recap_data.append([
-            "", "", f"FRAIS LIVRAISON ({nombre_livraisons} livraisons):", 
-            "", _format_money(frais_livraison_total)
-        ])
-        
-        # Total final
-        recap_data.append([
-            "", "", "TOTAL À PAYER:", 
-            "", _format_money(total_apres_remise)
+            Paragraph(f"<b>TOTAL À PAYER : {_format_money(total_apres_remise)} MAD</b>", styles['TotalStyle']),
+            "", "", "", ""
         ])
         
         recap_table = Table(recap_data, colWidths=[1.2*inch, 1.0*inch, 2.0*inch, 1.0*inch, 1.0*inch])
         recap_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c3e50')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-2), 0.5, colors.black),
+            ('FONTNAME', (0,0), (-1,-2), 'Times-Roman'),
+            ('FONTSIZE', (0,0), (-1,-2), 9),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('ALIGN', (2,1), (4,-1), 'RIGHT'),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,0), 12),
-            ('BACKGROUND', (0,1), (-1,-2), colors.HexColor('#f8f9fa')),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+            ('ALIGN', (2,1), (4,-2), 'RIGHT'),
             
-            # Style pour les lignes de totaux
-            ('FONTNAME', (0,-6), (-1,-6), 'Helvetica-Bold'),  # Total produits
-            ('BACKGROUND', (0,-6), (-1,-6), colors.HexColor('#e9ecef')),
-            
-            # Style pour la remise
-            ('TEXTCOLOR', (0,-5), (-1,-5), colors.green),
-            ('FONTNAME', (0,-5), (-1,-5), 'Helvetica-Bold'),
-            
-            # Style pour total produits après remise
-            ('FONTNAME', (0,-4), (-1,-4), 'Helvetica-Bold'),
-            
-            # Style pour frais livraison
-            ('FONTNAME', (0,-3), (-1,-3), 'Helvetica-Bold'),
-            
-            # Style pour le total final
-            ('BACKGROUND', (0,-2), (-1,-2), colors.HexColor('#d4edda')),
-            ('FONTSIZE', (0,-2), (-1,-2), 10),
-            ('FONTNAME', (0,-2), (-1,-2), 'Helvetica-Bold'),
-            
-            # Fusion pour la ligne vide
-            ('SPAN', (0,-7), (-1,-7)),
+            # En-tête
+            ('FONTNAME', (0,0), (-1,0), 'Times-Bold'),
+            ('BACKGROUND', (0,0), (-1,0), colors.black),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+
+            # Bloc des totaux
+            ('FONTNAME', (2,-4), (-1,-2), 'Times-Bold'),
+
+            # Ligne avant total final
+            ('LINEABOVE', (0,-1), (-1,-1), 2, colors.black),
+
+            # Fusion et centrage
+            ('SPAN', (0,-1), (-1,-1)),
+            ('ALIGN', (0,-1), (-1,-1), 'CENTER'),
+
+            # Apparence du total final
+            ('FONTSIZE', (0,-1), (-1,-1), 20),
+            ('BOTTOMPADDING', (0,-1), (-1,-1), 14),
+            ('TOPPADDING', (0,-1), (-1,-1), 14),
+            ('BOX', (0,-1), (-1,-1), 2, colors.black),  # ✅ encadré
         ]))
         
         elements.append(recap_table)
         elements.append(Spacer(1, 30))
     
-    # =====================
-    # PIED DE PAGE
-    # =====================
-   
     elements.append(Paragraph("Merci pour votre confiance!", styles['Normal']))
     elements.append(Spacer(1, 10))
-    elements.append(Paragraph("<i>MouniaMajid, ICE: 002947761000020, IF 50621840, TP 11000/2022/3069 Banque Credit du Maroc, IBAN: MA64 021 240 0000315027053382 95</i>", styles['Center']))
+    elements.append(Paragraph(
+        "<i>MouniaMajid, ICE: 002947761000020, IF 50621840, TP 11000/2022/3069 "
+        "Banque Crédit du Maroc, IBAN: MA64 021 240 0000315027053382 95</i>", styles['Center'])
+    )
     
-    # Génération du PDF
     doc.build(elements)
     buffer.seek(0)
     
-    filename = f"facture_{client.nom}_{annee}_{mois:02d}.pdf".replace(" ", "_")
+    filename = f"Facture_{client.nom}_{annee}_{mois:02d}.pdf".replace(" ", "_")
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
 
 def _format_money(value):
     """Format Decimal to string with 2 decimals (safe)."""
