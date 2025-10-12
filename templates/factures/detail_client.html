@@ -1,70 +1,80 @@
 {% extends 'base.html' %} {% block content %}
-<div class="container-fluid">
+<div class="container p-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Historique des Factures - {{ client.nom }}</h1>
-    <a href="{% url 'liste_clients' %}" class="btn btn-secondary">
+    <a href="{% url 'liste_clientspai' %}" class="btn btn-secondary">
       ← Retour à la liste
     </a>
   </div>
 
-  <div class="row mb-4">
-    <div class="col-md-6">
-      <div class="card">
-        <div class="card-header">
-          <h5 class="card-title mb-0">Informations du client</h5>
-        </div>
-        <div class="card-body">
-          <p>
-            <strong>Responsable:</strong> {{ client.responsable|default:"Non spécifié" }}
-          </p>
-          <p>
-            <strong>Téléphone:</strong> {{ client.telephone|default:"Nonspécifié" }}
-          </p>
-          <p>
-            <strong>Email:</strong> {{ client.email|default:"Non spécifié" }}
-          </p>
-          <p>
-            <strong>Adresse:</strong> {{ client.adresse|default:"Non spécifié" }}
-          </p>
-          <p>
-            <strong>Prix livraison:</strong> {{ client.prix_livraison }} MAD
-          </p>
+  <!-- Section Informations client compacte -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">Informations du client</h5>
+      <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#clientInfo">
+        Afficher/Masquer
+      </button>
+    </div>
+    <div class="collapse show" id="clientInfo">
+      <div class="card-body py-2">
+        <div class="row">
+          <div class="col-md-3">
+            <p class="mb-1"><strong>Responsable:</strong></p>
+            <p class="text-muted">{{ client.responsable|default:"Non spécifié" }}</p>
+          </div>
+          <div class="col-md-2">
+            <p class="mb-1"><strong>Téléphone:</strong></p>
+            <p class="text-muted">{{ client.telephone|default:"Non spécifié" }}</p>
+          </div>
+          <div class="col-md-3">
+            <p class="mb-1"><strong>Email:</strong></p>
+            <p class="text-muted">{{ client.email|default:"Non spécifié" }}</p>
+          </div>
+          <div class="col-md-2">
+            <p class="mb-1"><strong>Prix livraison:</strong></p>
+            <p class="text-muted">{{ client.prix_livraison }} MAD</p>
+          </div>
+          <div class="col-md-2">
+            <p class="mb-1"><strong>Adresse:</strong></p>
+            <p class="text-muted">{{ client.adresse|default:"Non spécifié" }}</p>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Historique des paiements -->
   <div class="card">
     <div class="card-header">
       <h5 class="card-title mb-0">Historique des paiements par mois</h5>
     </div>
-    <div class="card-body">
+    <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table table-striped">
+        <table class="table table-striped table-hover mb-0">
           <thead class="table-dark">
             <tr>
               <th>Mois</th>
-              <th>Nombre de commandes</th>
-              <th>Montant total</th>
-              <th>Montant payé</th>
-              <th>Reste à payer</th>
-              <th>Statut</th>
-              <th>Actions</th>
+              <th class="text-center">Commandes</th>
+              <th class="text-end">Total</th>
+              <th class="text-end">Payé</th>
+              <th class="text-end">Reste</th>
+              <th class="text-center">Statut</th>
+              <th class="text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             {% for item in historique %}
             <tr>
-              <td>{{ item.nom_mois }}</td>
-              <td>{{ item.nombre_commandes }}</td>
-              <td>{{ item.total_mois }} MAD</td>
-              <td>
+              <td class="fw-bold">{{ item.nom_mois }}</td>
+              <td class="text-center">{{ item.nombre_commandes }}</td>
+              <td class="text-end">{{ item.total_mois }} MAD</td>
+              <td class="text-end">
                 {% if item.paiement %} {{ item.paiement.montant_paye }} MAD {% else %} 0 MAD {% endif %}
               </td>
-              <td>
+              <td class="text-end fw-bold {% if item.paiement and item.paiement.reste_a_payer > 0 %}text-danger{% endif %}">
                 {% if item.paiement %} {{ item.paiement.reste_a_payer }} MAD {% else %} {{ item.total_mois }} MAD {% endif %}
               </td>
-              <td>
+              <td class="text-center">
                 {% if item.paiement %}
                 <span
                   class="badge {% if item.paiement.statut == 'paye' %}bg-success {% elif item.paiement.statut == 'partiel' %}bg-warning {% else %}bg-danger{% endif %}"
@@ -75,7 +85,7 @@
                 <span class="badge bg-secondary">Non payé</span>
                 {% endif %}
               </td>
-              <td>
+              <td class="text-center">
                 {% if item.total_mois > 0 %}
                 <button
                   type="button"
@@ -85,6 +95,8 @@
                 >
                   Mettre à jour
                 </button>
+                {% else %}
+                <span class="text-muted">-</span>
                 {% endif %}
               </td>
             </tr>
