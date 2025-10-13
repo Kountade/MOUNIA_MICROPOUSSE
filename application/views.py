@@ -790,7 +790,6 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from decimal import Decimal
 
-
 def export_commande_bon_pdf(request, pk):
     try:
         commande = get_object_or_404(Commande, pk=pk)
@@ -855,6 +854,9 @@ def export_commande_bon_pdf(request, pk):
 
         # === TABLEAU PRODUITS ===
         data = [["Produit", "Quantité", "Prix unitaire", "Sous-total"]]
+        
+        # Calcul de la quantité totale
+        quantite_totale = 0
 
         for item in commande.items.all():
             data.append([
@@ -863,6 +865,15 @@ def export_commande_bon_pdf(request, pk):
                 f"{float(item.prix_unitaire):.2f} MAD",
                 f"{float(item.sous_total):.2f} MAD"
             ])
+            quantite_totale += item.quantite
+
+        # Ajout de la ligne pour la quantité totale
+        data.append([
+            "TOTAL",
+            str(quantite_totale),
+            "",
+            f"{float(commande.total_sans_livraison):.2f} MAD"
+        ])
 
         table = Table(data, colWidths=[220, 80, 100, 100])
         table.setStyle(TableStyle([
@@ -876,6 +887,10 @@ def export_commande_bon_pdf(request, pk):
             ("RIGHTPADDING", (0, 0), (-1, -1), 6),
             ("TOPPADDING", (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            # Style pour la ligne de total
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f0f0f0")),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("LINEABOVE", (0, -1), (-1, -1), 1, colors.black),
         ]))
         elements.append(table)
         elements.append(Spacer(1, 20))
@@ -947,7 +962,6 @@ def export_commande_bon_pdf(request, pk):
     except Exception as e:
         # En cas d'erreur, retourner une réponse d'erreur
         return HttpResponse(f"Erreur lors de la génération du PDF: {str(e)}", status=500)
-
 def envoyer_bon_livraison(request, pk):
     commande = get_object_or_404(Commande, pk=pk)
 
