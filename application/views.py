@@ -1579,7 +1579,7 @@ def facture_client_mois_pdf(request):
 
         # ✅ TOTAL À PAYER — fusionné, centré, encadré et en grand
         recap_data.append([
-            Paragraph(f"<b>TOTAL À PAYER : {_format_money(total_apres_remise)} MAD</b>", styles['TotalStyle']),
+            Paragraph(f"<b>TOTAL À PAYER : {_format_money(total_apres_remise)} MAD/TTC</b>", styles['TotalStyle']),
             "", "", "", ""
         ])
         
