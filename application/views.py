@@ -1619,7 +1619,7 @@ def facture_client_mois_pdf(request):
     elements.append(Paragraph("Merci pour votre confiance!", styles['Normal']))
     elements.append(Spacer(1, 10))
     elements.append(Paragraph(
-        "<i>MouniaMajid, ICE: 002947761000020, IF 50621840, TP 11000/2022/3069 "
+        "<i>Mounia Majid, ICE: 002947761000020, IF 50621840, TP 11000/2022/3069 "
         "Banque Crédit du Maroc, IBAN: MA64 021 240 0000315027053382 95</i>", styles['Center'])
     )
     
