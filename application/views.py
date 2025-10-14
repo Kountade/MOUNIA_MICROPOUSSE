@@ -1525,7 +1525,7 @@ def facture_client_mois_pdf(request):
     
     infos_entreprise = [
         Paragraph("<b>MOUNIA MICROPOUSSE</b>", styles['Heading2']),
-        Paragraph("Micropousse • Douar Laarich, 44000 Essaouira", styles['Small']),
+        Paragraph("Adresse • mounia micropousse, Mounia Majid, Douar Laarich, essaouira....", styles['Small']),
         Paragraph("Tél: +212 702-704-420 • Email: mounia.majid97@gmail.com", styles['Small']),
     ]
     
