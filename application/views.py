@@ -1616,7 +1616,7 @@ def facture_client_mois_pdf(request):
         elements.append(recap_table)
         elements.append(Spacer(1, 30))
     
-    elements.append(Paragraph("Merci pour votre confiance!", styles['Normal']))
+    elements.append(Paragraph("Merci pour votre confiance !", styles['Normal']))
     elements.append(Spacer(1, 10))
     elements.append(Paragraph(
         "<i>Mounia Majid, ICE: 002947761000020, IF 50621840, TP 11000/2022/3069 "
