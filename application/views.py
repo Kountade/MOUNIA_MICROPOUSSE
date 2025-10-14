@@ -847,6 +847,7 @@ def export_commande_bon_pdf(request, pk):
         elements.append(Paragraph(f"Nom : {commande.client.nom}", styleN))
         if commande.client.ice:
             elements.append(Paragraph(f"ICE : {commande.client.ice}", styleN))
+        elements.append(Paragraph(f"Ville : {commande.client.ville}", styleN))
         elements.append(Paragraph(f"Adresse : {commande.client.adresse}", styleN))
         elements.append(Paragraph(f"Téléphone : {commande.client.telephone}", styleN))
         elements.append(Paragraph(f"Email : {commande.client.email or 'Non renseigné'}", styleN))
