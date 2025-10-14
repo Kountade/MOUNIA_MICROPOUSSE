@@ -4,6 +4,7 @@ cffi==2.0.0
 charset-normalizer==3.4.3
 crispy-bootstrap5==2025.6
 cssselect2==0.8.0
+dj-database-url==3.0.1
 Django==5.2.6
 django-crispy-forms==2.4
 django-crontab==0.7.1
