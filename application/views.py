@@ -824,6 +824,16 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from decimal import Decimal
 
+from io import BytesIO
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from .models import Commande
+
 def export_commande_bon_pdf(request, pk):
     try:
         commande = get_object_or_404(Commande, pk=pk)
@@ -873,7 +883,6 @@ def export_commande_bon_pdf(request, pk):
         # === INFOS COMMANDE ===
         elements.append(Paragraph(f"<b>Numéro :</b> {commande.id}", styleN))
         elements.append(Paragraph(f"<b>Date :</b> {commande.date_commande.strftime('%d/%m/%Y')}", styleN))
-    
         elements.append(Spacer(1, 12))
 
         # === INFOS CLIENT ===
@@ -890,9 +899,7 @@ def export_commande_bon_pdf(request, pk):
         # === TABLEAU PRODUITS ===
         data = [["Produit", "Quantité", "Prix unitaire", "Sous-total"]]
         
-        # Calcul de la quantité totale
         quantite_totale = 0
-
         for item in commande.items.all():
             data.append([
                 item.produit.nom,
@@ -902,7 +909,7 @@ def export_commande_bon_pdf(request, pk):
             ])
             quantite_totale += item.quantite
 
-        # Ajout de la ligne pour la quantité totale
+        # Ligne de total quantité
         data.append([
             "TOTAL",
             str(quantite_totale),
@@ -922,7 +929,6 @@ def export_commande_bon_pdf(request, pk):
             ("RIGHTPADDING", (0, 0), (-1, -1), 6),
             ("TOPPADDING", (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            # Style pour la ligne de total
             ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f0f0f0")),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
             ("LINEABOVE", (0, -1), (-1, -1), 1, colors.black),
@@ -930,13 +936,12 @@ def export_commande_bon_pdf(request, pk):
         elements.append(table)
         elements.append(Spacer(1, 20))
 
-        # === TOTAUX AVEC REMISE (CORRIGÉ) ===
+        # === TOTAUX AVEC REMISE ===
         data_totaux = [
             ["", "", "Sous-total produits:", f"{float(commande.total_sans_livraison):.2f} MAD"],
         ]
         
         if commande.remise_appliquee:
-            # Ligne de remise (appliquée uniquement sur les produits)
             remise_type = "Remise"
             if commande.remise_appliquee.type_remise == 'pourcentage':
                 remise_type += f" ({commande.remise_appliquee.valeur_remise}%)"
@@ -944,15 +949,10 @@ def export_commande_bon_pdf(request, pk):
                 remise_type += f" ({commande.remise_appliquee.valeur_remise} MAD)"
             
             data_totaux.append(["", "", remise_type + ":", f"-{float(commande.montant_remise):.2f} MAD"])
-            
-            # Sous-total après remise (uniquement sur les produits)
             total_produits_apres_remise = commande.total_sans_livraison - commande.montant_remise
             data_totaux.append(["", "", "Sous-total après remise:", f"{float(total_produits_apres_remise):.2f} MAD"])
         
-        # Frais de livraison (toujours affiché)
         data_totaux.append(["", "", "Frais de livraison:", f"{float(commande.frais_livraison):.2f} MAD"])
-        
-        # Total final
         data_totaux.append(["", "", "Total:", f"{float(commande.total_avec_remise):.2f} TTC"])
 
         total_table = Table(data_totaux, colWidths=[220, 80, 100, 100])
@@ -964,18 +964,15 @@ def export_commande_bon_pdf(request, pk):
             ("LINEBELOW", (2, -1), (3, -1), 1, colors.black),
             ("TOPPADDING", (0, 0), (-1, -1), 6),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            # Style pour la ligne de remise (texte en vert)
             ("TEXTCOLOR", (2, 1), (3, 1), colors.green) if commande.remise_appliquee else ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
         ]))
         elements.append(total_table)
         
         # === SIGNATURES ===
         elements.append(Spacer(1, 60))
-
         signatures_table = Table([
             ["Signature Client", "Cachet & Signature Entreprise"]
         ], colWidths=[250, 250])
-
         signatures_table.setStyle(TableStyle([
             ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 11),
@@ -983,7 +980,6 @@ def export_commande_bon_pdf(request, pk):
             ("ALIGN", (1, 0), (1, 0), "RIGHT"),
             ("TOPPADDING", (0, 0), (-1, -1), 40),
         ]))
-
         elements.append(signatures_table)
 
         # === GÉNÉRATION PDF ===
@@ -991,12 +987,19 @@ def export_commande_bon_pdf(request, pk):
         buffer.seek(0)
 
         response = HttpResponse(buffer, content_type="application/pdf")
-        response['Content-Disposition'] = f'attachment; filename="bon_livraison_{commande.id}.pdf"'
+
+        # === Nom du fichier : client + date ===
+        nom_client = commande.client.nom.replace(" ", "_").replace("/", "_")
+        date_str = commande.date_commande.strftime("%d-%m-%Y")
+        response['Content-Disposition'] = f'attachment; filename="BL_{nom_client}_{date_str}.pdf"'
+
         return response
 
     except Exception as e:
-        # En cas d'erreur, retourner une réponse d'erreur
         return HttpResponse(f"Erreur lors de la génération du PDF: {str(e)}", status=500)
+
+
+
 def envoyer_bon_livraison(request, pk):
     commande = get_object_or_404(Commande, pk=pk)
 
