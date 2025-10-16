@@ -817,7 +817,7 @@ def export_commande_bon_pdf(request, pk):
         titre = Paragraph("<b>BON DE LIVRAISON</b>", styleH)
 
         infos_entreprise = Paragraph(
-            """<b>MOUNIA</b><br/>
+            """<b>MOUNIA MAJID</b><br/>
             Activité : Micropousse<br/>
             Adresse : Douar Laarich, 44000 Essaouira<br/>
             Téléphone : +212 702-704-420<br/>
