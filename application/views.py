@@ -18,63 +18,94 @@ from .dashboard_stats import DashboardStats
 import json
 from django.utils.safestring import mark_safe
 
+from django.shortcuts import render
+from django.utils.safestring import mark_safe
+import json
+from .dashboard_stats import DashboardStats
+
 def home(request):
     """Vue principale du tableau de bord"""
-    
-    # Récupération des statistiques
-    stats = DashboardStats.get_stats_globales()
-    
-    # Préparation des données pour les graphiques
-    evolution_data = {
-        'mois': [item['mois'].strftime("%b %Y") for item in stats['evolution_clients']],
-        'clients': [item['total'] for item in stats['evolution_clients']],
-    }
-    
-    commandes_evolution = {
-        'semaines': [item['semaine'].strftime("%d/%m") for item in stats['evolution_commandes']],
-        'commandes': [item['total_commandes'] for item in stats['evolution_commandes']],
-        'ca': [item['total_ca'] for item in stats['evolution_commandes']],
-    }
-    
-    ca_mensuel = {
-        'mois': [item['mois'].strftime("%b") for item in stats['ca_par_mois']],
-        'montants': [item['ca_total'] for item in stats['ca_par_mois']],
-    }
-    
-    # Données pour le graphique circulaire des statuts de commandes
-    statuts_commandes = {
-        'labels': [item['statut'] for item in stats['commandes']['commandes_par_statut']],
-        'data': [item['total'] for item in stats['commandes']['commandes_par_statut']],
-    }
-    
-    # Statistiques rapides pour les cartes
-    stats_rapides = {
-        'total_clients': stats['clients']['total_clients'],
-        'clients_ce_mois': stats['clients']['clients_ce_mois'],
-        'total_produits': stats['produits']['total_produits'],
-        'produits_actifs': stats['produits']['produits_actifs'],
-        'prix_moyen_produits': stats['produits']['prix_moyen'],
-        'total_commandes': stats['commandes']['total_commandes'],
-        'ca_total': stats['commandes']['ca_total'],
-        'ca_ce_mois': stats['commandes']['ca_ce_mois'],
-        'commandes_cette_semaine': stats['commandes']['commandes_cette_semaine'],
-    }
-    
-    context = {
-        'stats_rapides': stats_rapides,
-        'stats_completes': stats,
-        'clients_par_ville': stats['clients']['clients_par_ville'],
-        'evolution_clients': stats['evolution_clients'],
-        'evolution_data': mark_safe(json.dumps(evolution_data)),
-        'commandes_evolution': mark_safe(json.dumps(commandes_evolution)),
-        'ca_mensuel': mark_safe(json.dumps(ca_mensuel)),
-        'statuts_commandes': mark_safe(json.dumps(statuts_commandes)),
-        'top_clients': stats['top_clients'],
-        'top_produits': stats['produits']['top_produits'],
-    }
-    
-    return render(request, 'index.html', context)
-
+    try:
+        # Récupération des statistiques
+        stats = DashboardStats.get_stats_globales()
+        
+        print("=== DEBUG GRAPHIQUES ===")
+        print(f"Commandes par ville: {len(stats.get('commandes_par_ville', []))}")
+        
+        # Préparation des données pour le graphique "Commandes par Ville"
+        commandes_par_ville_data = stats.get('commandes_par_ville', [])
+        
+        # Données pour le graphique circulaire des commandes par ville
+        commandes_ville_chart = {
+            'labels': [item['ville'] for item in commandes_par_ville_data[:8]],  # Limiter à 8 villes max
+            'data': [item['total_commandes'] for item in commandes_par_ville_data[:8]],
+            'ca_data': [item['total_ca'] for item in commandes_par_ville_data[:8]]
+        }
+        
+        print(f"📊 Données graphique commandes par ville: {commandes_ville_chart}")
+        
+        # Préparation des autres données pour les graphiques
+        evolution_data = {
+            'mois': [item['mois'].strftime("%b %Y") for item in stats.get('evolution_clients', [])],
+            'clients': [item['total'] for item in stats.get('evolution_clients', [])],
+        }
+        
+        commandes_evolution = {
+            'semaines': [item['semaine'].strftime("%d/%m") for item in stats.get('evolution_commandes', [])],
+            'commandes': [item['total_commandes'] for item in stats.get('evolution_commandes', [])],
+            'ca': [item['total_ca'] for item in stats.get('evolution_commandes', [])],
+        }
+        
+        ca_mensuel = {
+            'mois': [item['mois'].strftime("%b") for item in stats.get('ca_par_mois', [])],
+            'montants': [item['ca_total'] for item in stats.get('ca_par_mois', [])],
+        }
+        
+        # Données pour le graphique des statuts de commandes
+        commandes_stats = stats.get('commandes_par_statut', [])
+        statuts_commandes = {
+            'labels': [item['statut'] for item in commandes_stats],
+            'data': [item['total'] for item in commandes_stats],
+        }
+        
+        context = {
+            'stats_rapides': stats.get('stats_rapides', {}),
+            'stats_completes': stats,
+            'clients_par_ville': stats.get('clients_par_ville', []),
+            'evolution_clients': stats.get('evolution_clients', []),
+            'evolution_data': mark_safe(json.dumps(evolution_data)),
+            'commandes_evolution': mark_safe(json.dumps(commandes_evolution)),
+            'ca_mensuel': mark_safe(json.dumps(ca_mensuel)),
+            'statuts_commandes': mark_safe(json.dumps(statuts_commandes)),
+            'commandes_ville_chart': mark_safe(json.dumps(commandes_ville_chart)),  # NOUVEAU
+            'top_clients': stats.get('top_clients', []),
+            'top_produits': stats.get('top_produits', []),
+            'commandes_par_ville_data': commandes_par_ville_data,  # Pour le tableau
+        }
+        
+        print("✅ Tous les graphiques préparés")
+        return render(request, 'index.html', context)
+        
+    except Exception as e:
+        print(f"❌ ERREUR dans home: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Contexte d'erreur
+        return render(request, 'index.html', {
+            'stats_rapides': {},
+            'stats_completes': {},
+            'clients_par_ville': [],
+            'evolution_clients': [],
+            'evolution_data': mark_safe(json.dumps({'mois': [], 'clients': []})),
+            'commandes_evolution': mark_safe(json.dumps({'semaines': [], 'commandes': [], 'ca': []})),
+            'ca_mensuel': mark_safe(json.dumps({'mois': [], 'montants': []})),
+            'statuts_commandes': mark_safe(json.dumps({'labels': [], 'data': []})),
+            'commandes_ville_chart': mark_safe(json.dumps({'labels': [], 'data': [], 'ca_data': []})),
+            'top_clients': [],
+            'top_produits': [],
+            'commandes_par_ville_data': [],
+        })
 
 # 🔹 READ (liste des clients)
 def liste_clients(request):

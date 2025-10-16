@@ -270,16 +270,23 @@
         </div>
       </div>
 
-      <!-- Graphique Statuts des Commandes -->
+      <!-- Graphique Commandes par Ville -->
       <div class="col-md-6">
         <div class="card card-round">
           <div class="card-header">
             <div class="card-head-row">
-              <div class="card-title">Répartition des Commandes</div>
+              <div class="card-title">Répartition des Commandes par Ville</div>
             </div>
           </div>
           <div class="card-body">
-            <canvas id="statutsChart" height="250"></canvas>
+            {% if commandes_ville_chart %}
+            <canvas id="commandesVilleChart" height="250"></canvas>
+            {% else %}
+            <div class="text-center text-muted py-4">
+              <i class="fas fa-map-marker-alt fa-3x mb-3"></i>
+              <p>Aucune donnée de commandes par ville disponible</p>
+            </div>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -518,41 +525,21 @@
       }, 3000);
     });
 
-    // Données des graphiques (simulées pour l'exemple)
-    const caMensuelData = {
-      mois: [
-        "Jan",
-        "Fév",
-        "Mar",
-        "Avr",
-        "Mai",
-        "Jun",
-        "Jul",
-        "Aoû",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ],
-      montants: [
-        12000, 19000, 15000, 25000, 22000, 30000, 28000, 32000, 35000, 30000,
-        28000, 40000,
-      ],
-    };
+    // Données des graphiques depuis le contexte Django
+    const caMensuelData = {{ ca_mensuel|safe }};
+    const commandesVilleData = {{ commandes_ville_chart|safe }};
+    const commandesEvolutionData = {{ commandes_evolution|safe }};
+    const statutsCommandesData = {{ statuts_commandes|safe }};
 
-    const statutsCommandesData = {
-      labels: ["En cours", "Confirmée", "Livrée", "Annulée"],
-      data: [5, 12, 8, 2],
-    };
-
-    const commandesEvolutionData = {
-      semaines: ["Sem 1", "Sem 2", "Sem 3", "Sem 4"],
-      commandes: [8, 12, 6, 15],
-      ca: [4500, 6800, 3200, 8900],
-    };
+    console.log("📊 Données graphiques chargées:", {
+      caMensuel: caMensuelData,
+      commandesVille: commandesVilleData,
+      evolutionCommandes: commandesEvolutionData,
+      statutsCommandes: statutsCommandesData
+    });
 
     // Graphique CA Mensuel
-    if (document.getElementById("caChart")) {
+    if (document.getElementById("caChart") && caMensuelData.mois.length > 0) {
       const caCtx = document.getElementById("caChart").getContext("2d");
       const caChart = new Chart(caCtx, {
         type: "bar",
@@ -582,52 +569,69 @@
           },
         },
       });
+    } else {
+      console.log("Aucune donnée pour le graphique CA Mensuel");
     }
 
-    // Graphique Statuts des Commandes
-    if (document.getElementById("statutsChart")) {
-      const statutsCtx = document
-        .getElementById("statutsChart")
-        .getContext("2d");
-      const statutsChart = new Chart(statutsCtx, {
+    // Graphique Commandes par Ville
+    if (document.getElementById("commandesVilleChart") && commandesVilleData.labels.length > 0) {
+      const commandesVilleCtx = document.getElementById("commandesVilleChart").getContext("2d");
+      const commandesVilleChart = new Chart(commandesVilleCtx, {
         type: "doughnut",
         data: {
-          labels: statutsCommandesData.labels,
-          datasets: [
-            {
-              data: statutsCommandesData.data,
-              backgroundColor: [
-                "rgba(255, 99, 132, 0.5)",
-                "rgba(54, 162, 235, 0.5)",
-                "rgba(75, 192, 192, 0.5)",
-                "rgba(255, 205, 86, 0.5)",
-              ],
-              borderColor: [
-                "rgba(255, 99, 132, 1)",
-                "rgba(54, 162, 235, 1)",
-                "rgba(75, 192, 192, 1)",
-                "rgba(255, 205, 86, 1)",
-              ],
-              borderWidth: 1,
-            },
-          ],
+          labels: commandesVilleData.labels,
+          datasets: [{
+            data: commandesVilleData.data,
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.7)',
+              'rgba(54, 162, 235, 0.7)',
+              'rgba(255, 206, 86, 0.7)',
+              'rgba(75, 192, 192, 0.7)',
+              'rgba(153, 102, 255, 0.7)',
+              'rgba(255, 159, 64, 0.7)',
+              'rgba(199, 199, 199, 0.7)',
+              'rgba(83, 102, 255, 0.7)'
+            ],
+            borderColor: [
+              'rgba(255, 99, 132, 1)',
+              'rgba(54, 162, 235, 1)',
+              'rgba(255, 206, 86, 1)',
+              'rgba(75, 192, 192, 1)',
+              'rgba(153, 102, 255, 1)',
+              'rgba(255, 159, 64, 1)',
+              'rgba(199, 199, 199, 1)',
+              'rgba(83, 102, 255, 1)'
+            ],
+            borderWidth: 1
+          }]
         },
         options: {
           responsive: true,
           plugins: {
             legend: {
-              position: "bottom",
+              position: 'bottom',
             },
-          },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.raw || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = Math.round((value / total) * 100);
+                  return `${label}: ${value} commandes (${percentage}%)`;
+                }
+              }
+            }
+          }
         },
       });
+    } else {
+      console.log("Aucune donnée pour le graphique Commandes par Ville");
     }
 
     // Graphique Évolution Commandes et CA
-    if (document.getElementById("commandesChart")) {
-      const commandesCtx = document
-        .getElementById("commandesChart")
-        .getContext("2d");
+    if (document.getElementById("commandesChart") && commandesEvolutionData.semaines.length > 0) {
+      const commandesCtx = document.getElementById("commandesChart").getContext("2d");
       const commandesChart = new Chart(commandesCtx, {
         type: "line",
         data: {
@@ -687,6 +691,13 @@
           },
         },
       });
+    } else {
+      console.log("Aucune donnée pour le graphique Évolution Commandes");
+    }
+
+    // Graphique Statuts des Commandes (optionnel)
+    if (statutsCommandesData.labels.length > 0) {
+      console.log("Données statuts commandes disponibles:", statutsCommandesData);
     }
   });
 </script>
