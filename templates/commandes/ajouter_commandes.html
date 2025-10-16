@@ -1,6 +1,4 @@
-{% extends "base.html" %}
-{% load static %}
-{% block content %}
+{% extends "base.html" %} {% load static %} {% block content %}
 <main id="main" class="main">
   <div class="pagetitle">
     <h1>Nouvelle commande</h1>
@@ -24,9 +22,17 @@
             {% if messages %}
             <div class="alert-container">
               {% for message in messages %}
-              <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+              <div
+                class="alert alert-{{ message.tags }} alert-dismissible fade show"
+                role="alert"
+              >
                 {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <button
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="alert"
+                  aria-label="Close"
+                ></button>
               </div>
               {% endfor %}
             </div>
@@ -39,19 +45,57 @@
               <div class="col-12">
                 <label for="client" class="form-label">Client *</label>
                 <select id="client" name="client" class="form-select" required>
-                  <option value="" disabled selected>-- Sélectionnez un client --</option>
+                  <option value="" disabled selected>
+                    -- Sélectionnez un client --
+                  </option>
                   {% for c in clients %}
-                  <option value="{{ c.id }}">{{ c.nom }} - {{ c.ville }} ({{ c.responsable }})</option>
+                  <option value="{{ c.id }}">
+                    {{ c.nom }} - {{ c.ville }} ({{ c.responsable }})
+                  </option>
                   {% endfor %}
                 </select>
               </div>
 
               <!-- Date et heure de commande -->
               <div class="col-12">
-                <label for="date_commande" class="form-label">Date et heure de commande *</label>
-                <input type="datetime-local" id="date_commande" name="date_commande" class="form-control" required 
-                       value="{{ now|date:'Y-m-d\TH:i' }}">
-                <small class="form-text text-muted">Sélectionnez la date et l'heure de la commande</small>
+                <label for="date_commande" class="form-label"
+                  >Date et heure de commande *</label
+                >
+                <input
+                  type="datetime-local"
+                  id="date_commande"
+                  name="date_commande"
+                  class="form-control"
+                  required
+                  value="{{ now|date:'Y-m-d\TH:i' }}"
+                />
+                <div class="mt-2">
+                  <small class="text-muted me-3">Dates rapides :</small>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary me-1"
+                    onclick="setDateTime('today')"
+                  >
+                    Aujourd'hui
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary me-1"
+                    onclick="setDateTime('tomorrow')"
+                  >
+                    Demain
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    onclick="setDateTime('yesterday')"
+                  >
+                    Hier
+                  </button>
+                </div>
+                <small class="form-text text-muted"
+                  >Sélectionnez la date et l'heure de la commande</small
+                >
               </div>
 
               <!-- Produits -->
@@ -70,21 +114,43 @@
                     <!-- Ligne initiale -->
                     <tr>
                       <td>
-                        <select name="produit[]" class="form-select produit-select" required>
-                          <option value="" disabled selected>-- Sélectionnez un produit --</option>
+                        <select
+                          name="produit[]"
+                          class="form-select produit-select"
+                          required
+                        >
+                          <option value="" disabled selected>
+                            -- Sélectionnez un produit --
+                          </option>
                           {% for p in produits %}
-                          <option value="{{ p.id }}" data-prix="{{ p.prix }}">{{ p.nom }}</option>
+                          <option value="{{ p.id }}" data-prix="{{ p.prix }}">
+                            {{ p.nom }}
+                          </option>
                           {% endfor %}
                         </select>
                       </td>
                       <td>
-                        <input type="number" name="quantite[]" class="form-control" min="1" value="1" required />
+                        <input
+                          type="number"
+                          name="quantite[]"
+                          class="form-control"
+                          min="1"
+                          value="1"
+                          required
+                        />
                       </td>
                       <td>
-                        <input type="text" name="prix[]" class="form-control prix-produit" readonly />
+                        <input
+                          type="text"
+                          name="prix[]"
+                          class="form-control prix-produit"
+                          readonly
+                        />
                       </td>
                       <td>
-                        <button type="button" class="btn btn-danger delete-row">Supprimer</button>
+                        <button type="button" class="btn btn-danger delete-row">
+                          Supprimer
+                        </button>
                       </td>
                     </tr>
                   </tbody>
@@ -92,18 +158,24 @@
               </div>
 
               <div class="text-center">
-                <button type="button" id="add-row" class="btn btn-primary btn-lg">
+                <button
+                  type="button"
+                  id="add-row"
+                  class="btn btn-primary btn-lg"
+                >
                   <i class="bi bi-plus-circle"></i> Ajouter un produit
                 </button>
                 <button type="submit" class="btn btn-success btn-lg">
                   <i class="bi bi-check-circle"></i> Créer la commande
                 </button>
-                <a href="{% url 'liste_commandes' %}" class="btn btn-secondary btn-lg">
+                <a
+                  href="{% url 'liste_commandes' %}"
+                  class="btn btn-secondary btn-lg"
+                >
                   <i class="bi bi-arrow-left-circle"></i> Retour
                 </a>
               </div>
             </form>
-
           </div>
         </div>
       </div>
@@ -114,20 +186,15 @@
 <script type="text/javascript">
   document.addEventListener("DOMContentLoaded", function () {
     var addRowButton = document.getElementById("add-row");
-    var produitsTable = document.getElementById("produits-table").querySelector("tbody");
+    var produitsTable = document
+      .getElementById("produits-table")
+      .querySelector("tbody");
 
     // Définir la date et heure actuelles par défaut
     var now = new Date();
     var dateInput = document.getElementById("date_commande");
     if (!dateInput.value) {
-      // Format: YYYY-MM-DDTHH:MM
-      var year = now.getFullYear();
-      var month = String(now.getMonth() + 1).padStart(2, '0');
-      var day = String(now.getDate()).padStart(2, '0');
-      var hours = String(now.getHours()).padStart(2, '0');
-      var minutes = String(now.getMinutes()).padStart(2, '0');
-      
-      dateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+      setDateTime("today"); // Utiliser la fonction setDateTime pour initialiser
     }
 
     function attachProduitListener(select) {
@@ -140,17 +207,19 @@
           prixInput.value = "";
         }
       });
-      
+
       // Déclencher l'événement change pour la ligne initiale
       if (select.value) {
-        select.dispatchEvent(new Event('change'));
+        select.dispatchEvent(new Event("change"));
       }
     }
 
     // Attacher les listeners aux selects existants
-    produitsTable.querySelectorAll(".produit-select").forEach(function (select) {
-      attachProduitListener(select);
-    });
+    produitsTable
+      .querySelectorAll(".produit-select")
+      .forEach(function (select) {
+        attachProduitListener(select);
+      });
 
     // Ajouter une nouvelle ligne de produit
     addRowButton.addEventListener("click", function () {
@@ -188,6 +257,85 @@
         }
       }
     });
+
+    // Focus sur le champ client pour faciliter la sélection
+    setTimeout(() => {
+      document.getElementById("client").focus();
+    }, 500);
+  });
+
+  // Fonction pour définir la date et l'heure rapidement
+  function setDateTime(type) {
+    const dateInput = document.getElementById("date_commande");
+    const maintenant = new Date();
+    let nouvelleDate = new Date();
+
+    switch (type) {
+      case "today":
+        // Aujourd'hui à l'heure actuelle
+        break;
+      case "tomorrow":
+        nouvelleDate.setDate(maintenant.getDate() + 1);
+        break;
+      case "yesterday":
+        nouvelleDate.setDate(maintenant.getDate() - 1);
+        break;
+    }
+
+    // Formater la date pour l'input datetime-local
+    const annee = nouvelleDate.getFullYear();
+    const mois = String(nouvelleDate.getMonth() + 1).padStart(2, "0");
+    const jour = String(nouvelleDate.getDate()).padStart(2, "0");
+    const heures = String(nouvelleDate.getHours()).padStart(2, "0");
+    const minutes = String(nouvelleDate.getMinutes()).padStart(2, "0");
+
+    dateInput.value = `${annee}-${mois}-${jour}T${heures}:${minutes}`;
+  }
+
+  // Validation pour les dates futures
+  document.querySelector("form").addEventListener("submit", function (e) {
+    const dateInput = document.getElementById("date_commande");
+    const maintenant = new Date();
+    const dateChoisie = new Date(dateInput.value);
+
+    // Si la date choisie est dans le futur (plus de 5 minutes)
+    const difference = dateChoisie - maintenant;
+    const cinqMinutes = 5 * 60 * 1000; // 5 minutes en millisecondes
+
+    if (difference > cinqMinutes) {
+      const confirmation = confirm(
+        "⚠️ Vous avez sélectionné une date future.\n\n" +
+          "Voulez-vous vraiment créer une commande avec une date future ?\n\n" +
+          "Date sélectionnée : " +
+          dateChoisie.toLocaleDateString("fr-FR") +
+          " à " +
+          dateChoisie.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }) +
+          "\n" +
+          "Date actuelle : " +
+          maintenant.toLocaleDateString("fr-FR") +
+          " à " +
+          maintenant.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+      );
+
+      if (!confirmation) {
+        e.preventDefault();
+        dateInput.focus();
+        return;
+      }
+    }
   });
 </script>
+
+<style>
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+</style>
 {% endblock content %}
