@@ -36,7 +36,7 @@
               </div>
               <div class="text-end">
                 <img src="{% static 'assets/img/MOUNIA_LOGO.png' %}" alt="Logo" style="width: 120px">
-                <p><strong>MOUNIA</strong></p>
+                <p><strong>MOUNIA MAJID</strong></p>
                 <p>Douar Laarich, 44000 Essaouira</p>
                 <p>Téléphone : +212 620-270-420</p>
                 <p>Email : mounia.mand97@gmail.com</p>
@@ -127,12 +127,12 @@
             <h5 class="fw-bold mt-4">Produits commandés</h5>
             <div class="table-responsive">
               <table class="table table-bordered">
-                <thead style="background-color: #34b7f1; color: white">
+                <thead style="background-color: #838586; color: white">
                   <tr>
                     <th>Produit</th>
                     <th class="text-center">Quantité</th>
-                    <th class="text-end">Prix unitaire</th>
-                    <th class="text-end">Sous-total</th>
+                    <th class="text-center">Prix unitaire</th>
+                    <th class="text-center">Sous-total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -140,65 +140,79 @@
                   <tr>
                     <td>{{ item.produit.nom }}</td>
                     <td class="text-center">{{ item.quantite }}</td>
-                    <td class="text-end">{{ item.prix_unitaire|floatformat:2 }} MAD</td>
-                    <td class="text-end">{{ item.sous_total|floatformat:2 }} MAD</td>
+                    <td class="text-center">{{ item.prix_unitaire|floatformat:2 }} MAD</td>
+                    <td class="text-center">{{ item.sous_total|floatformat:2 }} MAD</td>
                   </tr>
                   {% empty %}
                   <tr>
                     <td colspan="4" class="text-center text-muted">Aucun produit dans cette commande</td>
                   </tr>
                   {% endfor %}
+                  
+                  <!-- Ligne pour la quantité totale (comme dans le PDF) -->
+                  <tr style="background-color: #f0f0f0; font-weight: bold; border-top: 2px solid #000;">
+                    <td>TOTAL</td>
+                    <td class="text-center">{{ quantite_totale }}</td>
+                    <td class="text-center"></td>
+                    <td class="text-center">{{ commande.total_sans_livraison|floatformat:2 }} MAD</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
 
-            <!-- Totaux -->
+            <!-- Totaux (comme dans le PDF) -->
             <div class="row justify-content-end mt-4">
               <div class="col-md-6">
-                <table class="table table-bordered">
+                <table class="table table-borderless">
                   <tr>
-                    <th>Sous-total produits</th>
-                    <td class="text-end">{{ commande.total_sans_livraison|floatformat:2 }} MAD</td>
+                    <td colspan="2" class="text-end"><strong>Sous-total produits:</strong></td>
+                    <td class="text-end" style="width: 120px">{{ commande.total_sans_livraison|floatformat:2 }} MAD</td>
                   </tr>
                   
                   <!-- Ligne de remise si applicable -->
                   {% if remise_appliquee %}
-                  <tr class="table-success">
-                    <th>
-                      <i class="bi bi-tag"></i> Remise 
-                      {% if remise_appliquee.type_remise == 'pourcentage' %}
-                        ({{ remise_appliquee.valeur_remise }}%)
-                      {% endif %}
-                    </th>
-                    <td class="text-end text-success fw-bold">
+                  <tr>
+                    <td colspan="2" class="text-end">
+                      <strong class="text-success">
+                        Remise 
+                        {% if remise_appliquee.type_remise == 'pourcentage' %}
+                          ({{ remise_appliquee.valeur_remise }}%)
+                        {% else %}
+                          ({{ remise_appliquee.valeur_remise|floatformat:2 }} MAD)
+                        {% endif %}:
+                      </strong>
+                    </td>
+                    <td class="text-end text-success fw-bold" style="width: 120px">
                       -{{ montant_remise|floatformat:2 }} MAD
                     </td>
                   </tr>
                   
                   <!-- Sous-total après remise -->
                   <tr>
-                    <th>Sous-total après remise</th>
-                    <td class="text-end">
-                      {{ commande.total_sans_livraison|floatformat:2|add:"-"|add:montant_remise|floatformat:2 }} MAD
+                    <td colspan="2" class="text-end"><strong>Sous-total après remise:</strong></td>
+                    <td class="text-end" style="width: 120px">
+                      {% with total_apres_remise=commande.total_sans_livraison|floatformat:2|add:"-"|add:montant_remise %}
+                        {{ total_apres_remise }} MAD
+                      {% endwith %}
                     </td>
                   </tr>
                   {% endif %}
                   
                   <tr>
-                    <th>Frais de livraison</th>
-                    <td class="text-end">{{ commande.frais_livraison|floatformat:2 }} MAD</td>
+                    <td colspan="2" class="text-end"><strong>Frais de livraison:</strong></td>
+                    <td class="text-end" style="width: 120px">{{ commande.frais_livraison|floatformat:2 }} MAD</td>
                   </tr>
                   
-                  <tr class="table-primary">
-                    <th class="fs-6">
+                  <tr style="border-top: 2px solid #000; border-bottom: 2px solid #000;">
+                    <td colspan="2" class="text-end fs-6">
                       {% if remise_appliquee %}
-                        <strong>Total après remise</strong>
+                        <strong>Total:</strong>
                       {% else %}
-                        <strong>Total général</strong>
+                        <strong>Total:</strong>
                       {% endif %}
-                    </th>
-                    <td class="text-end fs-6 fw-bold">
-                      {{ total_avec_remise|floatformat:2 }} MAD
+                    </td>
+                    <td class="text-end fs-6 fw-bold" style="width: 120px">
+                      {{ total_avec_remise|floatformat:2 }} TTC
                       {% if remise_appliquee %}
                         <br>
                         <small class="text-muted fs-7">
@@ -210,9 +224,9 @@
                   
                   <!-- Économie réalisée -->
                   {% if remise_appliquee %}
-                  <tr class="table-warning">
-                    <th>Économie réalisée</th>
-                    <td class="text-end fw-bold text-warning">
+                  <tr>
+                    <td colspan="2" class="text-end"><strong class="text-warning">Économie réalisée:</strong></td>
+                    <td class="text-end fw-bold text-warning" style="width: 120px">
                       {{ montant_remise|floatformat:2 }} MAD
                     </td>
                   </tr>
@@ -452,7 +466,7 @@ document.addEventListener('DOMContentLoaded', function() {
     border-bottom: 1px solid #dee2e6;
 }
 .table th {
-    background-color: #2c3e50;
+    background-color: #838586 !important;
     color: white;
 }
 .badge {

@@ -351,16 +351,19 @@ def liste_commandes(request):
 def detail_commande(request, pk):
     commande = get_object_or_404(Commande, pk=pk)
     
+    # Calculer la quantité totale
+    quantite_totale = sum(item.quantite for item in commande.items.all())
+    
     # Calculer les totaux avec remise
     context = {
         "commande": commande,
         "montant_remise": commande.montant_remise,
         "total_avec_remise": commande.total_avec_remise,
         "remise_appliquee": commande.remise_appliquee,
+        "quantite_totale": quantite_totale,  # Ajout de la quantité totale
     }
     
     return render(request, "commandes/detail_commande.html", context)
-
 
 # 📌 Créer une commande
 from django.contrib import messages
@@ -1522,11 +1525,12 @@ def facture_client_mois_pdf(request):
     try:
         logo = Image("static/assets/img/MOUNIA_LOGO.png", width=1.2*inch, height=1.2*inch)
     except:
-        logo = Paragraph("<b>MOUNIA MICROPOUSSE</b>", styles['Title'])
+        logo = Paragraph("<b>MOUNIA MAJID</b>", styles['Title'])
     
     infos_entreprise = [
-        Paragraph("<b>MOUNIA MICROPOUSSE</b>", styles['Heading2']),
-        Paragraph("Adresse • mounia micropousse, Mounia Majid, Douar Laarich, essaouira....", styles['Small']),
+          
+        Paragraph("<b>MOUNIA MAJID</b>", styles['Heading2']),
+        Paragraph("Adresse : Douar Laarich, essaouira....", styles['Small']),
         Paragraph("Tél: +212 702-704-420 • Email: mounia.majid97@gmail.com", styles['Small']),
     ]
     
