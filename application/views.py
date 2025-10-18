@@ -834,6 +834,15 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from .models import Commande
 
+from io import BytesIO
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, Image
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
 def export_commande_bon_pdf(request, pk):
     try:
         commande = get_object_or_404(Commande, pk=pk)
@@ -847,6 +856,17 @@ def export_commande_bon_pdf(request, pk):
         styles = getSampleStyleSheet()
         styleN = styles["Normal"]
         styleH = styles["Heading1"]
+
+        # === Style personnalisé pour le nom du client ===
+        styleClientNom = ParagraphStyle(
+            "ClientNom",
+            parent=styleN,
+            fontSize=14,        # Taille plus grande
+            leading=16,         # Espacement vertical
+            spaceAfter=6,
+            textColor=colors.HexColor("#000000"),
+            fontName="Helvetica-Bold"  # En gras
+        )
 
         # === EN-TÊTE (Logo - Titre - Infos Entreprise) ===
         logo_path = "static/assets/img/MOUNIA_LOGO.png"
@@ -887,7 +907,7 @@ def export_commande_bon_pdf(request, pk):
 
         # === INFOS CLIENT ===
         elements.append(Paragraph("<b>Informations du client</b>", styles["Heading2"]))
-        elements.append(Paragraph(f"Nom : {commande.client.nom}", styleN))
+        elements.append(Paragraph(f"Nom : {commande.client.nom}", styleClientNom))
         if commande.client.ice:
             elements.append(Paragraph(f"ICE : {commande.client.ice}", styleN))
         elements.append(Paragraph(f"Ville : {commande.client.ville}", styleN))
@@ -964,7 +984,6 @@ def export_commande_bon_pdf(request, pk):
             ("LINEBELOW", (2, -1), (3, -1), 1, colors.black),
             ("TOPPADDING", (0, 0), (-1, -1), 6),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("TEXTCOLOR", (2, 1), (3, 1), colors.green) if commande.remise_appliquee else ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
         ]))
         elements.append(total_table)
         
