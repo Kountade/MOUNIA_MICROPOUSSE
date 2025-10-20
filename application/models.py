@@ -7,19 +7,21 @@ from django.db import models
 from django.utils import timezone
 from decimal import Decimal
 
+
 class Client(models.Model):
     nom = models.CharField(max_length=150, verbose_name="Nom du restaurant")
-    responsable = models.CharField(max_length=100, verbose_name="Nom du responsable", blank=True, null=True)
+    responsable = models.CharField(
+        max_length=100, verbose_name="Nom du responsable", blank=True, null=True)
     telephone = models.CharField(
-        max_length=20, 
-        verbose_name="Téléphone", 
-        unique=True, 
-        blank=True, 
+        max_length=20,
+        verbose_name="Téléphone",
+        unique=True,
+        blank=True,
         null=True
     )
     ice = models.CharField(
-        max_length=15, 
-        verbose_name="ICE", 
+        max_length=15,
+        verbose_name="ICE",
         unique=False,
         blank=True,
         null=True
@@ -32,7 +34,8 @@ class Client(models.Model):
         decimal_places=2,
         verbose_name="Prix de livraison (en MAD)"
     )
-    date_creation = models.DateTimeField(auto_now_add=True, verbose_name="Date d'ajout")
+    date_creation = models.DateTimeField(
+        auto_now_add=True, verbose_name="Date d'ajout")
 
     class Meta:
         verbose_name = "Client (Restaurant)"
@@ -58,17 +61,17 @@ class Client(models.Model):
     def get_statut_paiement_mois(self, annee, mois):
         """Récupère ou met à jour le statut de paiement pour un mois"""
         mois_str = f"{annee}-{str(mois).zfill(2)}"
-        
+
         # Calculer le total ACTUEL du mois
         total_mois_actuel = self.get_total_mois(annee, mois)
-        
+
         try:
             paiement = Paiement.objects.get(client=self, mois=mois_str)
-            
+
             # Mettre à jour le montant_du si nécessaire
             if paiement.montant_du != total_mois_actuel:
                 paiement.montant_du = total_mois_actuel
-                
+
                 # Recalculer le statut basé sur le nouveau montant
                 if paiement.montant_paye >= total_mois_actuel:
                     paiement.statut = 'paye'
@@ -76,11 +79,11 @@ class Client(models.Model):
                     paiement.statut = 'partiel'
                 else:
                     paiement.statut = 'non_paye'
-                    
+
                 paiement.save()
-            
+
             return paiement
-            
+
         except Paiement.DoesNotExist:
             # Créer un nouveau paiement seulement s'il y a des commandes
             if total_mois_actuel > 0:
@@ -101,7 +104,7 @@ class Client(models.Model):
         """Force la mise à jour de tous les paiements pour ce client"""
         from datetime import datetime
         maintenant = timezone.now()
-        
+
         # Mettre à jour les 12 derniers mois
         for i in range(12):
             mois_date = maintenant - timezone.timedelta(days=30*i)
@@ -129,10 +132,6 @@ class Produit(models.Model):
     def __str__(self):
         return self.nom
 
-from decimal import Decimal
-from django.db import models
-from django.utils import timezone
-
 
 class Commande(models.Model):
     STATUT_CHOICES = [
@@ -142,11 +141,15 @@ class Commande(models.Model):
         ('Annulée', 'Annulée'),
     ]
 
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="commandes")
+    client = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name="commandes")
     date_commande = models.DateTimeField(default=timezone.now)
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="En cours")
-    notes = models.TextField(blank=True, null=True, verbose_name="Notes internes")
-    date_modification = models.DateTimeField(auto_now=True, verbose_name="Dernière modification")
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default="En cours")
+    notes = models.TextField(blank=True, null=True,
+                             verbose_name="Notes internes")
+    date_modification = models.DateTimeField(
+        auto_now=True, verbose_name="Dernière modification")
 
     class Meta:
         verbose_name = "Commande"
@@ -157,7 +160,7 @@ class Commande(models.Model):
         return f"Commande #{self.id} - {self.client.nom}"
 
     # === PROPRIÉTÉS CALCULÉES POUR LES TOTAUX ===
-    
+
     @property
     def total_sans_livraison(self):
         """Total des produits sans le prix de livraison"""
@@ -183,6 +186,7 @@ class Commande(models.Model):
             return Decimal(str(self.client.prix_livraison))
         except:
             return Decimal('0.00')
+
     @property
     def montant_paye(self):
         return sum(paiement.montant for paiement in self.paiements.all())
@@ -199,7 +203,7 @@ class Commande(models.Model):
             return 'paye'
 
     # === PROPRIÉTÉS POUR LES REMISES (CORRIGÉES) ===
-    
+
     @property
     def remise_appliquee(self):
         """Retourne la remise applicable pour ce client ce mois-ci"""
@@ -218,7 +222,7 @@ class Commande(models.Model):
         remise = self.remise_appliquee
         if not remise:
             return Decimal('0.00')
-        
+
         try:
             if remise.type_remise == 'pourcentage':
                 # Remise uniquement sur le total des produits
@@ -263,12 +267,13 @@ class Commande(models.Model):
 
 
 class CommandeItem(models.Model):
-    commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name="items")
+    commande = models.ForeignKey(
+        Commande, on_delete=models.CASCADE, related_name="items")
     produit = models.ForeignKey(Produit, on_delete=models.CASCADE)
     quantite = models.PositiveIntegerField(default=1)
     prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
     date_ajout = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         verbose_name = "Item de commande"
         verbose_name_plural = "Items de commande"
@@ -291,17 +296,20 @@ class CommandeItem(models.Model):
     def __str__(self):
         return f"{self.produit.nom} x {self.quantite} - {self.sous_total:.2f} MAD"
 
+
 class RemiseClient(models.Model):
     TYPE_REMISE_CHOICES = [
         ('pourcentage', 'Pourcentage (%)'),
         ('fixe', 'Montant fixe (MAD)'),
     ]
-    
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="remises")
-    type_remise = models.CharField(max_length=20, choices=TYPE_REMISE_CHOICES, verbose_name="Type de remise")
+
+    client = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name="remises")
+    type_remise = models.CharField(
+        max_length=20, choices=TYPE_REMISE_CHOICES, verbose_name="Type de remise")
     valeur_remise = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
+        max_digits=10,
+        decimal_places=2,
         default=0,
         verbose_name="Valeur de la remise"
     )
@@ -324,7 +332,7 @@ class RemiseClient(models.Model):
         verbose_name_plural = "Remises clients"
         unique_together = ['client', 'mois_application']
         ordering = ['-mois_application', 'client']
-    
+
     def __str__(self):
         type_affichage = "%" if self.type_remise == 'pourcentage' else "MAD"
         return f"Remise {self.client.nom} - {self.mois_application} ({self.valeur_remise} {type_affichage})"
@@ -352,21 +360,25 @@ class Notification(models.Model):
         ('rapport', 'Rapport quotidien'),
         ('alerte', 'Alerte importante'),
     ]
-    
+
     titre = models.CharField(max_length=200)
     message = models.TextField()
-    type_notification = models.CharField(max_length=20, choices=TYPE_CHOIX, default='commande_jour')
-    commande = models.ForeignKey(Commande, on_delete=models.CASCADE, null=True, blank=True)
+    type_notification = models.CharField(
+        max_length=20, choices=TYPE_CHOIX, default='commande_jour')
+    commande = models.ForeignKey(
+        Commande, on_delete=models.CASCADE, null=True, blank=True)
     lue = models.BooleanField(default=False)
     date_creation = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         verbose_name = "Notification"
         verbose_name_plural = "Notifications"
         ordering = ['-date_creation']
-    
+
     def __str__(self):
         return f"{self.titre} - {self.date_creation.strftime('%d/%m/%Y %H:%M')}"
+
+
 class ParametresMounia(models.Model):
     nom_hotel = models.CharField(max_length=100, default="Mon app")
     adresse = models.TextField(default="Adresse par défaut")
@@ -376,17 +388,14 @@ class ParametresMounia(models.Model):
         default="Annulation gratuite jusqu'à 48h avant l'arrivée.",
         help_text="Texte explicatif pour les annulations"
     )
-    logo = models.ImageField(upload_to='hotel_logos/', blank=True, null=True)  # Optionnel
+    logo = models.ImageField(upload_to='hotel_logos/',
+                             blank=True, null=True)  # Optionnel
 
     def __str__(self):
         return f"Paramètres de {self.nom_hotel}"
 
     class Meta:
         verbose_name_plural = "Paramètres de mounia"  # Nom correct dans l'admin Django
-        
-        
-
-
 
 
 class Paiement(models.Model):
@@ -395,12 +404,16 @@ class Paiement(models.Model):
         ('partiel', 'Partiellement payé'),
         ('non_paye', 'Non payé'),
     ]
-    
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="paiements")
+
+    client = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name="paiements")
     mois = models.CharField(max_length=7, verbose_name="Mois (YYYY-MM)")
-    montant_du = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant dû")
-    montant_paye = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Montant payé")
-    statut = models.CharField(max_length=20, choices=STATUT_PAIEMENT_CHOICES, default='non_paye')
+    montant_du = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Montant dû")
+    montant_paye = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, verbose_name="Montant payé")
+    statut = models.CharField(
+        max_length=20, choices=STATUT_PAIEMENT_CHOICES, default='non_paye')
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 
@@ -426,5 +439,3 @@ class Paiement(models.Model):
         else:
             self.statut = 'non_paye'
         super().save(*args, **kwargs)
-
-
