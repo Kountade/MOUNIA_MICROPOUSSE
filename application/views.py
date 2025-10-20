@@ -1101,12 +1101,12 @@ def _format_decimal(value):
 
 
 def export_commandes_pdf(request):
-    from .models import Commande, Produit, Client  # ✅ import interne
+    # ✅ Correction: CommandeItem au lieu de ItemCommande
+    from .models import Commande, Produit, Client, CommandeItem
 
-    # --- 🔹 Filtrage optionnel par date ---
+    # --- 🔹 Filtrage par date ---
     date_filtre = request.GET.get("date")
-    commandes = Commande.objects.prefetch_related(
-        "items__produit", "client").all()
+    commandes = Commande.objects.prefetch_related("items__produit", "client")
 
     date_obj = None
     if date_filtre:
@@ -1116,79 +1116,89 @@ def export_commandes_pdf(request):
         except ValueError:
             pass
 
-    # --- 🔹 Préparation du buffer PDF ---
+    # --- 🔹 Récupération UNIQUEMENT des produits commandés ---
+    produits_commandes_ids = CommandeItem.objects.filter(  # ✅ Correction: CommandeItem
+        commande__in=commandes
+    ).values_list('produit_id', flat=True).distinct()
+
+    # ✅ Seulement les produits qui ont été commandés
+    produits = Produit.objects.filter(
+        id__in=produits_commandes_ids
+    ).order_by("nom")
+
+    # --- 🔹 Récupération UNIQUEMENT des clients ayant commandé ---
+    clients_avec_commandes_ids = commandes.values_list(
+        'client_id', flat=True).distinct()
+    clients = Client.objects.filter(
+        id__in=clients_avec_commandes_ids
+    ).order_by("nom")
+
+    # --- 🔹 Préparation du PDF en paysage ---
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
-        leftMargin=20,
-        rightMargin=20,
-        topMargin=30,
-        bottomMargin=30,
+        leftMargin=15,
+        rightMargin=15,
+        topMargin=20,
+        bottomMargin=20,
     )
 
     elements = []
     styles = getSampleStyleSheet()
 
-    # === 🔹 En-tête avec logo et infos entreprise ===
+    # === 🔹 En-tête ===
     try:
         logo_path = "static/assets/img/MOUNIA_LOGO.png"
-        logo = Image(logo_path, width=1.4 * inch, height=1.4 * inch)
+        logo = Image(logo_path, width=1.2 * inch, height=1.2 * inch)
     except Exception:
-        logo = Paragraph("<b>[Logo non trouvé]</b>", styles["Normal"])
+        logo = Paragraph("<b>MOUNIA MAJID</b>", styles["Heading2"])
 
     infos_entreprise = Paragraph(
         """<b>MOUNIA MICROPOUSSE</b><br/>
-        Activité : Micropousse<br/>
-        Adresse : Douar Laarich, Essaouira<br/>
-        Téléphone : +212 620-270-420<br/>
-        Email : mounia.mand97@gmail.com""",
+        Douar Laarich, Essaouira<br/>
+        Tél: +212 702-704-420<br/>
+        Email: mounia.majid97@gmail.com""",
         styles["Normal"]
     )
 
     header_table = Table([[logo, infos_entreprise]],
-                         colWidths=[3 * inch, 6 * inch])
+                         colWidths=[2 * inch, 6 * inch])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ALIGN", (0, 0), (0, 0), "LEFT"),
         ("ALIGN", (1, 0), (1, 0), "RIGHT"),
     ]))
     elements.append(header_table)
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 15))
 
-    # === 🔹 Titre principal ===
+    # === 🔹 Titre ===
     titre = (
-        f"TABLEAU CROISÉ CLIENTS / PRODUITS - {date_obj.strftime('%d/%m/%Y')}"
-        if date_obj else "TABLEAU CROISÉ CLIENTS / PRODUITS (Toutes commandes)"
+        f"TABLEAU DES COMMANDES - {date_obj.strftime('%d/%m/%Y')}"
+        if date_obj else "TABLEAU DES COMMANDES (Toutes dates)"
     )
-    elements.append(Paragraph(titre, styles["Title"]))
+    elements.append(Paragraph(titre, styles["Heading1"]))
     elements.append(Spacer(1, 10))
 
-    # === 🔹 Construction du tableau croisé ===
+    # === 🔹 Construction du tableau OPTIMISÉ ===
     if not commandes.exists():
         elements.append(
             Paragraph("Aucune commande trouvée.", styles["Normal"]))
     else:
-        produits = list(Produit.objects.all().order_by("nom"))
-
-        # Récupérer uniquement les clients ayant au moins une commande
-        clients = (
-            Client.objects.filter(commandes__isnull=False)
-            .distinct()
-            .order_by("nom")
-        )
-
-        # Dictionnaire: client -> produit -> quantité
+        # ✅ Dictionnaire: client -> produit -> quantité (uniquement pour les produits commandés)
         quantites = defaultdict(lambda: defaultdict(Decimal))
 
         for commande in commandes:
-            for item in commande.items.all():
+            for item in commande.items.all():  # ✅ items fait référence à CommandeItem via related_name
                 client_nom = commande.client.nom
                 produit_nom = item.produit.nom
-                quantites[client_nom][produit_nom] += Decimal(
-                    item.quantite or 0)
+                # ✅ Seulement si le produit est dans la liste des produits commandés
+                if item.produit.id in produits_commandes_ids:
+                    quantites[client_nom][produit_nom] += Decimal(
+                        item.quantite or 0)
 
-        # === En-tête : Produits + Total client ===
+        # === En-tête du tableau ===
+        # ✅ Colonnes : Client + Produits commandés + Total
         data = [["Client"] + [p.nom for p in produits] + ["Total Client"]]
 
         total_general = Decimal("0.00")
@@ -1196,80 +1206,113 @@ def export_commandes_pdf(request):
 
         # === Lignes clients (uniquement ceux ayant commandé) ===
         for client in clients:
-            total_client = sum(quantites[client.nom].values())
-            if total_client == 0:
-                continue  # ✅ Ignorer le client sans commandes réelles
-
             ligne = [client.nom]
+            total_client = Decimal("0.00")
+
             for produit in produits:
                 qte = quantites[client.nom][produit.nom]
-                ligne.append(str(qte) if qte > 0 else "")
-                totaux_produits[produit.nom] += qte
-            ligne.append(str(total_client))
-            total_general += total_client
-            data.append(ligne)
+                # ✅ Afficher seulement si quantité > 0
+                if qte > 0:
+                    ligne.append(str(qte))
+                    total_client += qte
+                    totaux_produits[produit.nom] += qte
+                else:
+                    ligne.append("")  # Cellule vide si pas de commande
 
-        # === Ligne des totaux produits ===
-        ligne_total = ["TOTAL PRODUITS"]
-        for produit in produits:
-            ligne_total.append(str(totaux_produits[produit.nom]))
-        ligne_total.append(str(total_general))
-        data.append(ligne_total)
+            # ✅ Ajouter le total client seulement s'il y a des commandes
+            if total_client > 0:
+                ligne.append(str(total_client))
+                total_general += total_client
+                data.append(ligne)
 
-        # === 🔹 Calcul dynamique des largeurs ===
-        base_width = 9.5 * inch
+        # === Ligne des totaux produits (uniquement produits commandés) ===
+        if totaux_produits:
+            ligne_total = ["TOTAL"]
+            for produit in produits:
+                total_produit = totaux_produits[produit.nom]
+                # ✅ Afficher seulement si le produit a été commandé
+                if total_produit > 0:
+                    ligne_total.append(str(total_produit))
+                else:
+                    ligne_total.append("")
+            ligne_total.append(str(total_general))
+            data.append(ligne_total)
+
+        # === 🔹 Calcul des largeurs de colonnes optimisées ===
         nb_produits = len(produits)
-        col_produit_width = max(0.5 * inch, base_width / (nb_produits + 2))
-        col_widths = [1.6 * inch] + [col_produit_width] * \
-            nb_produits + [1.0 * inch]
+        if nb_produits > 0:
+            # Largeur totale disponible (paysage A4 - marges)
+            largeur_disponible = 10.5 * inch
+            largeur_client = 1.8 * inch
+            largeur_total = 1.0 * inch
+            largeur_restante = largeur_disponible - largeur_client - largeur_total
+
+            # Largeur par produit (minimum 0.6 inch)
+            largeur_produit = max(0.6 * inch, largeur_restante / nb_produits)
+
+            col_widths = [largeur_client] + [largeur_produit] * \
+                nb_produits + [largeur_total]
+        else:
+            col_widths = [3 * inch, 3 * inch]  # Fallback si pas de produits
 
         # === 🔹 Création du tableau ===
-        table = Table(data, repeatRows=1, colWidths=col_widths)
+        if len(data) > 1:  # S'il y a des données
+            table = Table(data, repeatRows=1, colWidths=col_widths)
 
-        # === 🔹 Style du tableau ===
-        style = [
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-            ("FONTSIZE", (0, 0), (-1, 0), 7),
+            # === 🔹 Style optimisé pour la lisibilité ===
+            style = TableStyle([
+                # En-tête
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                ("FONTSIZE", (0, 0), (-1, 0), 9),
 
-            ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (1, 1), (-1, -1), "CENTER"),
-            ("FONTSIZE", (0, 1), (-1, -1), 6),
+                # Grille
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (1, 1), (-2, -1), "CENTER"),  # Centrer les quantités
+                # Centrer les totaux clients
+                ("ALIGN", (-1, 1), (-1, -1), "CENTER"),
+                ("FONTSIZE", (0, 1), (-1, -1), 8),
 
-            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#d4edda")),
-            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-            ("ALIGN", (0, -1), (-1, -1), "CENTER"),
-        ]
+                # Ligne des totaux
+                ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#d4edda")),
+                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, -1), (-1, -1), 9),
+            ])
 
-        # === Alternance de couleurs pour lisibilité ===
-        for i in range(1, len(data) - 1):
-            if i % 2 == 0:
-                style.append(("BACKGROUND", (0, i), (-1, i),
-                             colors.HexColor("#f8f9fa")))
+            # Alternance de couleurs pour les lignes clients
+            for i in range(1, len(data) - 1):
+                bg_color = colors.HexColor(
+                    "#f8f9fa") if i % 2 == 0 else colors.white
+                style.add("BACKGROUND", (0, i), (-1, i), bg_color)
 
-        table.setStyle(TableStyle(style))
-        elements.append(table)
+            table.setStyle(style)
+            elements.append(table)
+        else:
+            elements.append(
+                Paragraph("Aucune donnée à afficher.", styles["Normal"]))
 
     # === 🔹 Pied de page ===
     elements.append(Spacer(1, 20))
     elements.append(Paragraph(
-        "<i>Document généré automatiquement - MOUNIA MICROPOUSSE</i>", styles["Normal"]))
+        "<i>Document généré automatiquement - MOUNIA MICROPOUSSE</i>",
+        styles["Italic"]
+    ))
     elements.append(Paragraph(
-        f"<i>Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</i>", styles["Normal"]))
+        f"<i>Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</i>",
+        styles["Italic"]
+    ))
 
     # === 🔹 Génération finale ===
     doc.build(elements)
     buffer.seek(0)
 
-    filename = f"tableau_croise_commandes_{date_filtre if date_filtre else 'complet'}.pdf"
+    filename = f"commandes_{date_filtre if date_filtre else 'complet'}.pdf"
     response = HttpResponse(buffer, content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename=\"{filename}\"'
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
-
-
 # views.py
 
 
