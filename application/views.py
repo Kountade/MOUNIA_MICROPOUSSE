@@ -1101,8 +1101,17 @@ def _format_decimal(value):
 
 
 def export_commandes_pdf(request):
-    # ✅ Correction: CommandeItem au lieu de ItemCommande
     from .models import Commande, Produit, Client, CommandeItem
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import landscape, A4
+    from django.http import HttpResponse
+    from io import BytesIO
+    from datetime import datetime
+    from decimal import Decimal
+    from collections import defaultdict
 
     # --- 🔹 Filtrage par date ---
     date_filtre = request.GET.get("date")
@@ -1117,11 +1126,10 @@ def export_commandes_pdf(request):
             pass
 
     # --- 🔹 Récupération UNIQUEMENT des produits commandés ---
-    produits_commandes_ids = CommandeItem.objects.filter(  # ✅ Correction: CommandeItem
+    produits_commandes_ids = CommandeItem.objects.filter(
         commande__in=commandes
     ).values_list('produit_id', flat=True).distinct()
 
-    # ✅ Seulement les produits qui ont été commandés
     produits = Produit.objects.filter(
         id__in=produits_commandes_ids
     ).order_by("nom")
@@ -1138,10 +1146,10 @@ def export_commandes_pdf(request):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
-        leftMargin=15,
-        rightMargin=15,
-        topMargin=20,
-        bottomMargin=20,
+        leftMargin=10,  # Réduit les marges pour plus d'espace
+        rightMargin=10,
+        topMargin=15,
+        bottomMargin=15,
     )
 
     elements = []
@@ -1150,7 +1158,8 @@ def export_commandes_pdf(request):
     # === 🔹 En-tête ===
     try:
         logo_path = "static/assets/img/MOUNIA_LOGO.png"
-        logo = Image(logo_path, width=1.2 * inch, height=1.2 * inch)
+        logo = Image(logo_path, width=1.0 * inch,
+                     height=1.0 * inch)  # Logo plus petit
     except Exception:
         logo = Paragraph("<b>MOUNIA MAJID</b>", styles["Heading2"])
 
@@ -1163,123 +1172,123 @@ def export_commandes_pdf(request):
     )
 
     header_table = Table([[logo, infos_entreprise]],
-                         colWidths=[2 * inch, 6 * inch])
+                         colWidths=[1.5 * inch, 6 * inch])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ALIGN", (0, 0), (0, 0), "LEFT"),
         ("ALIGN", (1, 0), (1, 0), "RIGHT"),
     ]))
     elements.append(header_table)
-    elements.append(Spacer(1, 15))
+    elements.append(Spacer(1, 10))  # Espace réduit
 
     # === 🔹 Titre ===
     titre = (
         f"TABLEAU DES COMMANDES - {date_obj.strftime('%d/%m/%Y')}"
         if date_obj else "TABLEAU DES COMMANDES (Toutes dates)"
     )
-    elements.append(Paragraph(titre, styles["Heading1"]))
-    elements.append(Spacer(1, 10))
+    # Heading2 au lieu de Heading1
+    elements.append(Paragraph(titre, styles["Heading2"]))
+    elements.append(Spacer(1, 8))
 
     # === 🔹 Construction du tableau OPTIMISÉ ===
     if not commandes.exists():
         elements.append(
             Paragraph("Aucune commande trouvée.", styles["Normal"]))
     else:
-        # ✅ Dictionnaire: client -> produit -> quantité (uniquement pour les produits commandés)
+        # ✅ Dictionnaire: client -> produit -> quantité
         quantites = defaultdict(lambda: defaultdict(Decimal))
 
         for commande in commandes:
-            for item in commande.items.all():  # ✅ items fait référence à CommandeItem via related_name
+            for item in commande.items.all():
                 client_nom = commande.client.nom
                 produit_nom = item.produit.nom
-                # ✅ Seulement si le produit est dans la liste des produits commandés
                 if item.produit.id in produits_commandes_ids:
                     quantites[client_nom][produit_nom] += Decimal(
                         item.quantite or 0)
 
         # === En-tête du tableau ===
-        # ✅ Colonnes : Client + Produits commandés + Total
-        data = [["Client"] + [p.nom for p in produits] + ["Total Client"]]
+        data = [["Client"] + [p.nom for p in produits] + ["Total"]]
 
         total_general = Decimal("0.00")
         totaux_produits = defaultdict(Decimal)
 
-        # === Lignes clients (uniquement ceux ayant commandé) ===
+        # === Lignes clients ===
         for client in clients:
             ligne = [client.nom]
             total_client = Decimal("0.00")
 
             for produit in produits:
                 qte = quantites[client.nom][produit.nom]
-                # ✅ Afficher seulement si quantité > 0
-                if qte > 0:
-                    ligne.append(str(qte))
-                    total_client += qte
-                    totaux_produits[produit.nom] += qte
-                else:
-                    ligne.append("")  # Cellule vide si pas de commande
+                ligne.append(str(qte) if qte > 0 else "")
+                total_client += qte
+                totaux_produits[produit.nom] += qte
 
-            # ✅ Ajouter le total client seulement s'il y a des commandes
             if total_client > 0:
                 ligne.append(str(total_client))
                 total_general += total_client
                 data.append(ligne)
 
-        # === Ligne des totaux produits (uniquement produits commandés) ===
+        # === Ligne des totaux produits ===
         if totaux_produits:
             ligne_total = ["TOTAL"]
             for produit in produits:
                 total_produit = totaux_produits[produit.nom]
-                # ✅ Afficher seulement si le produit a été commandé
-                if total_produit > 0:
-                    ligne_total.append(str(total_produit))
-                else:
-                    ligne_total.append("")
+                ligne_total.append(str(total_produit)
+                                   if total_produit > 0 else "")
             ligne_total.append(str(total_general))
             data.append(ligne_total)
 
-        # === 🔹 Calcul des largeurs de colonnes optimisées ===
+        # === 🔹 Calcul des largeurs de colonnes ADAPTATIF ===
         nb_produits = len(produits)
         if nb_produits > 0:
-            # Largeur totale disponible (paysage A4 - marges)
-            largeur_disponible = 10.5 * inch
-            largeur_client = 1.8 * inch
-            largeur_total = 1.0 * inch
+            # Largeur totale disponible (paysage A4 - marges réduites)
+            largeur_disponible = 11.0 * inch  # Un peu plus large
+            largeur_client = 1.5 * inch  # Colonne client plus étroite
+            largeur_total = 0.8 * inch   # Colonne total plus étroite
             largeur_restante = largeur_disponible - largeur_client - largeur_total
 
-            # Largeur par produit (minimum 0.6 inch)
-            largeur_produit = max(0.6 * inch, largeur_restante / nb_produits)
+            # Largeur par produit adaptative
+            if nb_produits <= 10:
+                largeur_produit = largeur_restante / nb_produits
+            elif nb_produits <= 20:
+                largeur_produit = 0.5 * inch  # Largeur fixe pour moyen nombre
+            else:
+                largeur_produit = 0.4 * inch  # Largeur minimale pour beaucoup de produits
+
+            # Ajuster si nécessaire
+            if largeur_produit * nb_produits > largeur_restante:
+                largeur_produit = largeur_restante / nb_produits
 
             col_widths = [largeur_client] + [largeur_produit] * \
                 nb_produits + [largeur_total]
         else:
-            col_widths = [3 * inch, 3 * inch]  # Fallback si pas de produits
+            col_widths = [3 * inch, 3 * inch]
 
-        # === 🔹 Création du tableau ===
-        if len(data) > 1:  # S'il y a des données
+        # === 🔹 Création du tableau avec style OPTIMISÉ ===
+        if len(data) > 1:
             table = Table(data, repeatRows=1, colWidths=col_widths)
 
-            # === 🔹 Style optimisé pour la lisibilité ===
+            # Style optimisé pour petits caractères
             style = TableStyle([
                 # En-tête
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-                ("FONTSIZE", (0, 0), (-1, 0), 9),
+                ("FONTSIZE", (0, 0), (-1, 0), 8),  # Taille réduite
 
                 # Grille
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),  # Lignes plus fines
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("ALIGN", (1, 1), (-2, -1), "CENTER"),  # Centrer les quantités
-                # Centrer les totaux clients
+                ("ALIGN", (1, 1), (-2, -1), "CENTER"),
                 ("ALIGN", (-1, 1), (-1, -1), "CENTER"),
-                ("FONTSIZE", (0, 1), (-1, -1), 8),
+                # Taille réduite pour le contenu
+                ("FONTSIZE", (0, 1), (-1, -1), 7),
 
                 # Ligne des totaux
                 ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#d4edda")),
                 ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-                ("FONTSIZE", (0, -1), (-1, -1), 9),
+                ("FONTSIZE", (0, -1), (-1, -1), 8),
             ])
 
             # Alternance de couleurs pour les lignes clients
@@ -1290,12 +1299,20 @@ def export_commandes_pdf(request):
 
             table.setStyle(style)
             elements.append(table)
+
+            # === 🔹 Message d'information si beaucoup de produits ===
+            if nb_produits > 15:
+                elements.append(Spacer(1, 5))
+                elements.append(Paragraph(
+                    f"<i>Note: {nb_produits} produits affichés. Utilisez le zoom pour une meilleure lisibilité.</i>",
+                    styles["Italic"]
+                ))
         else:
             elements.append(
                 Paragraph("Aucune donnée à afficher.", styles["Normal"]))
 
-    # === 🔹 Pied de page ===
-    elements.append(Spacer(1, 20))
+    # === 🔹 Pied de page compact ===
+    elements.append(Spacer(1, 15))
     elements.append(Paragraph(
         "<i>Document généré automatiquement - MOUNIA MICROPOUSSE</i>",
         styles["Italic"]
@@ -1313,7 +1330,6 @@ def export_commandes_pdf(request):
     response = HttpResponse(buffer, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
-# views.py
 
 
 def _format_money(value):
