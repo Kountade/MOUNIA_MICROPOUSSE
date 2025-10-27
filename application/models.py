@@ -1,8 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-
-
+from django.db.models import Sum
 from django.db import models
 from django.utils import timezone
 from decimal import Decimal
@@ -131,6 +130,112 @@ class Produit(models.Model):
 
     def __str__(self):
         return self.nom
+
+    @classmethod
+    def get_statistiques_ventes_mois(cls, annee, mois):
+        """
+        Retourne les statistiques de vente de tous les produits pour un mois donné
+        Inclut toutes les commandes, tous statuts confondus
+        """
+
+        # Récupérer tous les items de commande pour le mois spécifié
+        items_mois = CommandeItem.objects.filter(
+            commande__date_commande__year=annee,
+            commande__date_commande__month=mois
+        )
+
+        # Calculer le total général de toutes les quantités vendues
+        total_general = items_mois.aggregate(
+            total=Sum('quantite')
+        )['total'] or 0
+
+        # Récupérer tous les produits actifs
+        produits = cls.objects.filter(actif=True)
+
+        statistiques = []
+        for produit in produits:
+            # Calculer le total vendu pour ce produit
+            items_produit = items_mois.filter(produit=produit)
+            total_vendu = items_produit.aggregate(
+                total=Sum('quantite')
+            )['total'] or 0
+
+            # Calculer le pourcentage
+            pourcentage = 0
+            if total_general > 0:
+                pourcentage = (total_vendu / total_general) * 100
+
+            statistiques.append({
+                'produit': produit,
+                'total_vendu': total_vendu,
+                'pourcentage': round(pourcentage, 2)
+            })
+
+        # Trier par quantité vendue (décroissant)
+        statistiques.sort(key=lambda x: x['total_vendu'], reverse=True)
+
+        return {
+            'statistiques': statistiques,
+            'total_general': total_general,
+            'mois': mois,
+            'annee': annee
+        }
+
+    @classmethod
+    def get_statistiques_ventes_mois_optimise(cls, annee, mois):
+        """
+        Version optimisée avec une seule requête
+        """
+
+        # Récupérer les statistiques en une seule requête
+        stats = CommandeItem.objects.filter(
+            commande__date_commande__year=annee,
+            commande__date_commande__month=mois
+        ).values('produit__id', 'produit__nom').annotate(
+            total_vendu=Sum('quantite')
+        ).order_by('-total_vendu')
+
+        # Calculer le total général
+        total_general = sum(item['total_vendu'] for item in stats)
+
+        # Récupérer tous les produits actifs pour inclure même ceux non vendus
+        produits_actifs = cls.objects.filter(actif=True)
+        produits_dict = {produit.id: produit for produit in produits_actifs}
+
+        statistiques = []
+        # D'abord ajouter les produits vendus
+        for item in stats:
+            produit_id = item['produit__id']
+            if produit_id in produits_dict:
+                pourcentage = 0
+                if total_general > 0:
+                    pourcentage = (item['total_vendu'] / total_general) * 100
+
+                statistiques.append({
+                    'produit': produits_dict[produit_id],
+                    'total_vendu': item['total_vendu'],
+                    'pourcentage': round(pourcentage, 2)
+                })
+
+        # Ensuite ajouter les produits actifs non vendus (quantité 0)
+        produits_vendus_ids = [item['produit__id'] for item in stats]
+        for produit in produits_actifs:
+            if produit.id not in produits_vendus_ids:
+                statistiques.append({
+                    'produit': produit,
+                    'total_vendu': 0,
+                    'pourcentage': 0.0
+                })
+
+        # Trier par quantité vendue (décroissant)
+        statistiques.sort(key=lambda x: x['total_vendu'], reverse=True)
+
+        return {
+            'statistiques': statistiques,
+            'total_general': total_general,
+            'mois': mois,
+            'annee': annee
+        }
 
 
 class Commande(models.Model):

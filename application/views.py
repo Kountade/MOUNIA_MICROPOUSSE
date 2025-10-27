@@ -1918,6 +1918,49 @@ def mettre_a_jour_paiement(request, client_id, mois):
     })
 
 
+def statistiques_ventes_produits(request):
+    """
+    Vue pour afficher les statistiques de vente des produits par mois
+    """
+    # Récupérer le mois et l'année depuis les paramètres GET
+    mois = request.GET.get('mois')
+    annee = request.GET.get('annee')
+
+    if mois and annee:
+        mois = int(mois)
+        annee = int(annee)
+    else:
+        # Par défaut, le mois courant
+        now = timezone.now()
+        mois = now.month
+        annee = now.year
+
+    # Récupérer les statistiques
+    stats = Produit.get_statistiques_ventes_mois(annee, mois)
+
+    # Préparer les choix pour les selects
+    mois_choices = [
+        (1, 'Janvier'), (2, 'Février'), (3, 'Mars'), (4, 'Avril'),
+        (5, 'Mai'), (6, 'Juin'), (7, 'Juillet'), (8, 'Août'),
+        (9, 'Septembre'), (10, 'Octobre'), (11, 'Novembre'), (12, 'Décembre')
+    ]
+
+    current_year = timezone.now().year
+    annees_choices = [(year, year)
+                      for year in range(current_year - 1, current_year + 1)]
+
+    context = {
+        'statistiques': stats['statistiques'],
+        'total_general': stats['total_general'],
+        'mois_selectionne': mois,
+        'annee_selectionnee': annee,
+        'mois_choices': mois_choices,
+        'annees_choices': annees_choices,
+    }
+
+    return render(request, 'commandes/statistiques_ventes_produits.html', context)
+
+
 def ajouter_utilisateur(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
