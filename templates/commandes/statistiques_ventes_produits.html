@@ -8,10 +8,21 @@
         <div class="col-12">
             <h1 class="mb-4">Statistiques des Ventes par Produit</h1>
             
+            <!-- Alerte pour mois futur -->
+            {% if est_mois_futur %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                Vous visualisez les statistiques d'un mois futur. Les données seront disponibles à partir du mois sélectionné.
+            </div>
+            {% endif %}
+            
             <!-- Formulaire de sélection -->
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">Sélection du Période</h5>
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-calendar-alt"></i>
+                        Sélection de la Période
+                    </h5>
                 </div>
                 <div class="card-body">
                     <form method="get" class="row align-items-end">
@@ -19,26 +30,48 @@
                             <label for="mois" class="form-label">Mois</label>
                             <select name="mois" id="mois" class="form-select">
                                 {% for value, nom in mois_choices %}
-                                    <option value="{{ value }}" {% if value == mois_selectionne %}selected{% endif %}>
+                                    <option value="{{ value }}" 
+                                            {% if value == mois_selectionne %}selected{% endif %}
+                                            {% if annee_selectionnee == current_year and value > current_month %}disabled{% endif %}>
                                         {{ nom }}
+                                        {% if annee_selectionnee == current_year and value > current_month %}
+                                        (Futur)
+                                        {% endif %}
                                     </option>
                                 {% endfor %}
                             </select>
+                            <div class="form-text">
+                                {% if annee_selectionnee == current_year %}
+                                    Mois disponibles jusqu'à {{ current_month }}
+                                {% else %}
+                                    Tous les mois disponibles
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <label for="annee" class="form-label">Année</label>
                             <select name="annee" id="annee" class="form-select">
                                 {% for value, nom in annees_choices %}
-                                    <option value="{{ value }}" {% if value == annee_selectionnee %}selected{% endif %}>
+                                    <option value="{{ value }}" 
+                                            {% if value == annee_selectionnee %}selected{% endif %}>
                                         {{ nom }}
+                                        {% if value == current_year %}(En cours){% endif %}
                                     </option>
                                 {% endfor %}
                             </select>
+                            <div class="form-text">
+                                Années disponibles : {{ current_year|add:"-2" }} à {{ current_year }}
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <button type="submit" class="btn btn-success w-100">
                                 <i class="fas fa-chart-bar"></i> Générer les Statistiques
                             </button>
+                            <div class="mt-2 text-center">
+                                <small class="text-muted">
+                                    Période : {{ mois_selectionne }}/{{ annee_selectionnee }}
+                                </small>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -46,13 +79,13 @@
 
             <!-- Carte récapitulative -->
             <div class="row mb-4">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card bg-info text-white">
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
                                     <h4 class="mb-0">{{ total_general }}</h4>
-                                    <p class="mb-0">Total Unités Vendues</p>
+                                    <p class="mb-0">Total Unités</p>
                                 </div>
                                 <div class="align-self-center">
                                     <i class="fas fa-boxes fa-2x"></i>
@@ -61,7 +94,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card bg-success text-white">
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
@@ -76,7 +109,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card bg-warning text-dark">
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
@@ -91,94 +124,141 @@
                         </div>
                     </div>
                 </div>
+                <div class="col-md-3">
+                    <div class="card {% if est_mois_futur %}bg-secondary{% else %}bg-primary{% endif %} text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="mb-0">
+                                        {% if est_mois_futur %}
+                                        Mois Futur
+                                        {% else %}
+                                        Données Réelles
+                                        {% endif %}
+                                    </h6>
+                                    <p class="mb-0">
+                                        {% if est_mois_futur %}
+                                        <small>À venir</small>
+                                        {% else %}
+                                        <small>Historique</small>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-{% if est_mois_futur %}clock{% else %}chart-line{% endif %} fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Tableau des statistiques -->
             <div class="card">
                 <div class="card-header bg-dark text-white">
                     <h5 class="card-title mb-0">
+                        <i class="fas fa-table"></i>
                         Détail des Ventes par Produit
-                        <small class="text-light">(Tous statuts de commande inclus)</small>
+                        <small class="text-light">
+                            ({{ mois_selectionne }}/{{ annee_selectionnee }})
+                            {% if est_mois_futur %}
+                            - <em class="text-warning">Mois futur - Données non disponibles</em>
+                            {% endif %}
+                        </small>
                     </h5>
                 </div>
                 <div class="card-body p-0">
-                    {% if statistiques %}
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th width="5%">#</th>
-                                    <th width="35%">Produit</th>
-                                    <th width="15%">Prix Unitaire</th>
-                                    <th width="15%">Quantité Vendue</th>
-                                    <th width="15%">Pourcentage</th>
-                                    <th width="15%">Répartition</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for stat in statistiques %}
-                                <tr>
-                                    <td class="fw-bold text-muted">{{ forloop.counter }}</td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            {% if stat.produit.image %}
-                                            <img src="{{ stat.produit.image.url }}" 
-                                                 alt="{{ stat.produit.nom }}" 
-                                                 class="rounded me-3" 
-                                                 style="width: 40px; height: 40px; object-fit: cover;">
-                                            {% else %}
-                                            <div class="rounded bg-secondary me-3 d-flex align-items-center justify-content-center"
-                                                 style="width: 40px; height: 40px;">
-                                                <i class="fas fa-box text-white"></i>
-                                            </div>
-                                            {% endif %}
-                                            <div>
-                                                <strong>{{ stat.produit.nom }}</strong>
-                                                {% if stat.produit.description %}
-                                                <br><small class="text-muted">{{ stat.produit.description|truncatewords:5 }}</small>
+                    {% if not est_mois_futur %}
+                        {% if statistiques and total_general > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="5%">#</th>
+                                        <th width="35%">Produit</th>
+                                        <th width="15%">Prix Unitaire</th>
+                                        <th width="15%">Quantité Vendue</th>
+                                        <th width="15%">Pourcentage</th>
+                                        <th width="15%">Répartition</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for stat in statistiques %}
+                                    <tr>
+                                        <td class="fw-bold text-muted">{{ forloop.counter }}</td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if stat.produit.image %}
+                                                <img src="{{ stat.produit.image.url }}" 
+                                                     alt="{{ stat.produit.nom }}" 
+                                                     class="rounded me-3" 
+                                                     style="width: 40px; height: 40px; object-fit: cover;">
+                                                {% else %}
+                                                <div class="rounded bg-secondary me-3 d-flex align-items-center justify-content-center"
+                                                     style="width: 40px; height: 40px;">
+                                                    <i class="fas fa-box text-white"></i>
+                                                </div>
                                                 {% endif %}
+                                                <div>
+                                                    <strong>{{ stat.produit.nom }}</strong>
+                                                    {% if stat.produit.description %}
+                                                    <br><small class="text-muted">{{ stat.produit.description|truncatewords:5 }}</small>
+                                                    {% endif %}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span class="fw-bold text-success">{{ stat.produit.prix }}</span>
-                                        <small class="text-muted">MAD</small>
-                                    </td>
-                                    <td>
-                                        <span class="fw-bold fs-5">{{ stat.total_vendu }}</span>
-                                        <small class="text-muted">unités</small>
-                                    </td>
-                                    <td>
-                                        <span class="badge {% if stat.pourcentage > 0 %}bg-primary{% else %}bg-secondary{% endif %} fs-6">
-                                            {{ stat.pourcentage }}%
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div class="progress" style="height: 25px;">
-                                            <div class="progress-bar 
-                                                {% if stat.pourcentage > 20 %}bg-success
-                                                {% elif stat.pourcentage > 10 %}bg-info
-                                                {% elif stat.pourcentage > 0 %}bg-warning
-                                                {% else %}bg-secondary{% endif %}" 
-                                                role="progressbar" 
-                                                style="width: {{ stat.pourcentage }}%"
-                                                aria-valuenow="{{ stat.pourcentage }}" 
-                                                aria-valuemin="0" 
-                                                aria-valuemax="100">
-                                                {% if stat.pourcentage >= 5 %}{{ stat.pourcentage|floatformat:1 }}%{% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold text-success">{{ stat.produit.prix }}</span>
+                                            <small class="text-muted">MAD</small>
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold fs-5">{{ stat.total_vendu }}</span>
+                                            <small class="text-muted">unités</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge {% if stat.pourcentage > 0 %}bg-primary{% else %}bg-secondary{% endif %} fs-6">
+                                                {{ stat.pourcentage }}%
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="progress" style="height: 25px;">
+                                                <div class="progress-bar 
+                                                    {% if stat.pourcentage > 20 %}bg-success
+                                                    {% elif stat.pourcentage > 10 %}bg-info
+                                                    {% elif stat.pourcentage > 0 %}bg-warning
+                                                    {% else %}bg-secondary{% endif %}" 
+                                                    role="progressbar" 
+                                                    style="width: {{ stat.pourcentage }}%"
+                                                    aria-valuenow="{{ stat.pourcentage }}" 
+                                                    aria-valuemin="0" 
+                                                    aria-valuemax="100">
+                                                    {% if stat.pourcentage >= 5 %}{{ stat.pourcentage|floatformat:1 }}%{% endif %}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-chart-bar fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted">Aucune donnée de vente</h4>
+                            <p class="text-muted">Aucune vente trouvée pour la période sélectionnée.</p>
+                        </div>
+                        {% endif %}
                     {% else %}
                     <div class="text-center py-5">
-                        <i class="fas fa-chart-bar fa-4x text-muted mb-3"></i>
-                        <h4 class="text-muted">Aucune donnée de vente</h4>
-                        <p class="text-muted">Aucune vente trouvée pour la période sélectionnée.</p>
+                        <i class="fas fa-clock fa-4x text-warning mb-3"></i>
+                        <h4 class="text-warning">Mois futur</h4>
+                        <p class="text-muted">Les statistiques pour ce mois seront disponibles à partir du {{ mois_selectionne }}/{{ annee_selectionnee }}.</p>
+                        <div class="mt-3">
+                            <a href="?mois={{ current_month }}&annee={{ current_year }}" class="btn btn-primary">
+                                <i class="fas fa-chart-bar"></i>
+                                Voir les statistiques du mois en cours
+                            </a>
+                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -186,4 +266,45 @@
         </div>
     </div>
 </div>
+
+<!-- JavaScript pour mettre à jour automatiquement les mois lorsqu'on change l'année -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const moisSelect = document.getElementById('mois');
+    const anneeSelect = document.getElementById('annee');
+    const currentYear = {{ current_year }};
+    const currentMonth = {{ current_month }};
+    
+    function updateMonthsAvailability() {
+        const selectedYear = parseInt(anneeSelect.value);
+        
+        // Activer/désactiver les options de mois en fonction de l'année
+        for (let option of moisSelect.options) {
+            const monthValue = parseInt(option.value);
+            
+            if (selectedYear === currentYear && monthValue > currentMonth) {
+                option.disabled = true;
+                if (option.selected) {
+                    option.selected = false;
+                    // Sélectionner le premier mois disponible
+                    for (let opt of moisSelect.options) {
+                        if (!opt.disabled) {
+                            opt.selected = true;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                option.disabled = false;
+            }
+        }
+    }
+    
+    // Mettre à jour lors du changement d'année
+    anneeSelect.addEventListener('change', updateMonthsAvailability);
+    
+    // Initialiser
+    updateMonthsAvailability();
+});
+</script>
 {% endblock %}

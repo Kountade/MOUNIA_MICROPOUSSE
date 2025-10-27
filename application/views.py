@@ -1921,33 +1921,49 @@ def mettre_a_jour_paiement(request, client_id, mois):
 def statistiques_ventes_produits(request):
     """
     Vue pour afficher les statistiques de vente des produits par mois
+    avec gestion automatique des mois futurs
     """
     # Récupérer le mois et l'année depuis les paramètres GET
     mois = request.GET.get('mois')
     annee = request.GET.get('annee')
 
+    now = timezone.now()
+    current_year = now.year
+    current_month = now.month
+
     if mois and annee:
         mois = int(mois)
         annee = int(annee)
+
+        # Validation : empêcher la sélection de mois futurs
+        if annee > current_year or (annee == current_year and mois > current_month):
+            mois = current_month
+            annee = current_year
     else:
         # Par défaut, le mois courant
-        now = timezone.now()
-        mois = now.month
-        annee = now.year
+        mois = current_month
+        annee = current_year
 
     # Récupérer les statistiques
     stats = Produit.get_statistiques_ventes_mois(annee, mois)
 
-    # Préparer les choix pour les selects
-    mois_choices = [
-        (1, 'Janvier'), (2, 'Février'), (3, 'Mars'), (4, 'Avril'),
-        (5, 'Mai'), (6, 'Juin'), (7, 'Juillet'), (8, 'Août'),
-        (9, 'Septembre'), (10, 'Octobre'), (11, 'Novembre'), (12, 'Décembre')
-    ]
+    # Générer automatiquement les mois et années disponibles
+    mois_choices = []
+    for m in range(1, 13):
+        nom_mois = [
+            'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+            'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+        ][m-1]
+        mois_choices.append((m, f"{m:02d} - {nom_mois}"))
 
-    current_year = timezone.now().year
+    # Générer les années disponibles (2 ans en arrière jusqu'à l'année courante)
+    start_year = current_year - 2
     annees_choices = [(year, year)
-                      for year in range(current_year - 1, current_year + 1)]
+                      for year in range(start_year, current_year + 1)]
+
+    # Vérifier si c'est un mois futur (pour l'affichage)
+    est_mois_futur = (annee > current_year) or (
+        annee == current_year and mois > current_month)
 
     context = {
         'statistiques': stats['statistiques'],
@@ -1956,6 +1972,9 @@ def statistiques_ventes_produits(request):
         'annee_selectionnee': annee,
         'mois_choices': mois_choices,
         'annees_choices': annees_choices,
+        'est_mois_futur': est_mois_futur,
+        'current_year': current_year,
+        'current_month': current_month,
     }
 
     return render(request, 'commandes/statistiques_ventes_produits.html', context)
