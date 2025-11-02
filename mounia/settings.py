@@ -28,8 +28,6 @@ MESSAGE_TAGS = {
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
@@ -55,27 +53,25 @@ INSTALLED_APPS = [
     "application",  # Remplacez par le nom de votre application
     "crispy_forms",
     "crispy_bootstrap5",
-     "django_crontab",
-    #"django_bootstrap5",
-   #  'formtools',
- "django_extensions",
+    "django_crontab",
+    # "django_bootstrap5",
+    #  'formtools',
+    "django_extensions",
 ]
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 
-
-
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-     'application.middleware.NotificationMiddleware',
+    'application.middleware.NotificationMiddleware',
 ]
 
 ROOT_URLCONF = "mounia.urls"
@@ -83,7 +79,7 @@ ROOT_URLCONF = "mounia.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-         "DIRS": [BASE_DIR / 'templates'],
+        "DIRS": [BASE_DIR / 'templates'],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -91,7 +87,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                 'application.context_processors.parametres_mounia',
+                'application.context_processors.parametres_mounia',
             ],
         },
     },
@@ -102,7 +98,6 @@ WSGI_APPLICATION = "mounia.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
 
 
 if os.environ.get('RENDER'):
@@ -155,17 +150,17 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 
-
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',  # Dossier static à la racine de votre projet
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-  # Dossier où les fichiers seront collectés lors du déploiement
+# Dossier où les fichiers seront collectés lors du déploiement
 # Fichiers médias
 MEDIA_URL = '/media/'  # URL pour accéder aux fichiers médias téléchargés
-MEDIA_ROOT = BASE_DIR / 'media'  # Dossier où les fichiers téléchargés seront stockés
+# Dossier où les fichiers téléchargés seront stockés
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -176,11 +171,8 @@ CRONJOBS = [
 ]
 
 
-
-
 # Configuration email (pour la vérification)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Pour le développement
-
 
 
 LOGIN_REDIRECT_URL = 'home'

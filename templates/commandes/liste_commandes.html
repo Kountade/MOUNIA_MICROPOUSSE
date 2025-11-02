@@ -115,7 +115,7 @@
                       -
                     {% endif %}
                   </td>
-                  <td>
+                  <td data-order="{{ commande.date_commande|date:'Y-m-d H:i:s' }}">
                     <span title="{{ commande.date_commande|date:'d/m/Y H:i:s' }}">
                       {{ commande.date_commande|date:"d/m/Y H:i" }}
                     </span>
@@ -209,7 +209,7 @@
       pageLength: 10,
       autoWidth: false,
       responsive: true,
-      order: [[3, 'desc']], // Tri par date décroissante par défaut
+      order: [], // DÉSACTIVER le tri automatique pour respecter l'ordre du serveur
       language: {
         url: "//cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json",
       },

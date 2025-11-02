@@ -417,11 +417,12 @@ def liste_commandes(request):
         try:
             # Convertir la date du format YYYY-MM-DD en objet date
             date_obj = datetime.strptime(date_filtre, '%Y-%m-%d').date()
-            commandes = Commande.objects.filter(date_commande__date=date_obj)
+            commandes = Commande.objects.filter(
+                date_commande__date=date_obj).order_by('-date_commande')
         except ValueError:
-            commandes = Commande.objects.all()
+            commandes = Commande.objects.all().order_by('-date_commande')
     else:
-        commandes = Commande.objects.all()
+        commandes = Commande.objects.all().order_by('-date_commande')
 
     # Calculer le total général
     total_general = Decimal('0.00')
