@@ -1,32 +1,43 @@
+from django.forms import inlineformset_factory
+from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+from django.core.validators import FileExtensionValidator
+from .models import ParametresMounia
+from .models import RemiseClient
+from .models import Commande, CommandeItem, Client, Produit
 from django import forms
 from .models import Client
 from django.shortcuts import render, redirect
 from django.contrib import messages
 
 
-
+from django import forms
+from django.core.exceptions import ValidationError
+from .models import *
+import re
+import re
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import Client
-import re
 
 
 class ClientForm(forms.ModelForm):
-    # Seulement ces 3 champs sont obligatoires
+    # Champs obligatoires
     nom = forms.CharField(
         max_length=150,
         required=True,
         label="Nom du restaurant",
         error_messages={'required': 'Le nom du restaurant est obligatoire'}
     )
-    
+
     ville = forms.CharField(
         max_length=100,
         required=True,
         label="Ville",
         error_messages={'required': 'La ville est obligatoire'}
     )
-    
+
     prix_livraison = forms.DecimalField(
         required=True,
         label="Prix de livraison (en MAD)",
@@ -42,55 +53,49 @@ class ClientForm(forms.ModelForm):
 
     class Meta:
         model = Client
-        fields = ['nom', 'ice', 'ville', 'prix_livraison', 'responsable', 'telephone', 'email', 'adresse']
+        fields = ['nom', 'ice', 'ville', 'prix_livraison',
+                  'responsable', 'telephone', 'email', 'adresse']
 
     def clean_ice(self):
         ice = self.cleaned_data.get('ice')
-        
-        # ICE est optionnel, donc si vide on retourne None
+
+        # ICE est optionnel
         if not ice:
             return None
-            
-        # Si ICE est fourni, on le valide
-        # Supprimer les espaces et caractères spéciaux
+
+        # Nettoyer : supprimer espaces et caractères non numériques
         ice_clean = re.sub(r'[^\d]', '', ice)
-        
-        # Vérifier la longueur
+
+        # Vérifier la longueur (seulement si renseigné)
         if len(ice_clean) != 15:
-            raise ValidationError("Le numéro ICE doit contenir exactement 15 chiffres")
-        
-        # Vérifier l'unicité seulement si l'ICE est fourni
-        queryset = Client.objects.filter(ice=ice_clean)
-        if self.instance and self.instance.pk:
-            queryset = queryset.exclude(pk=self.instance.pk)
-            
-        if queryset.exists():
-            raise ValidationError("Ce numéro ICE est déjà utilisé")
-        
+            raise ValidationError(
+                "Le numéro ICE doit contenir exactement 15 chiffres")
+
+        # ✅ On ne vérifie plus l’unicité ici
         return ice_clean
 
     def clean_prix_livraison(self):
         prix = self.cleaned_data.get('prix_livraison')
         if prix is not None and prix < 0:
-            raise ValidationError("Le prix de livraison ne peut pas être négatif")
+            raise ValidationError(
+                "Le prix de livraison ne peut pas être négatif")
         return prix
 
     def __init__(self, *args, **kwargs):
         super(ClientForm, self).__init__(*args, **kwargs)
-        # Marquer seulement les 3 champs obligatoires avec un astérisque
+        # Marquer les champs obligatoires avec un astérisque
         required_fields = ['nom', 'ville', 'prix_livraison']
         for field_name in required_fields:
             if field_name in self.fields:
                 self.fields[field_name].label += ' *'
-        
+
         # Rendre les autres champs optionnels
-        optional_fields = ['ice', 'responsable', 'telephone', 'email', 'adresse']
+        optional_fields = ['ice', 'responsable',
+                           'telephone', 'email', 'adresse']
         for field_name in optional_fields:
             if field_name in self.fields:
                 self.fields[field_name].required = False
 
-from django import forms
-from .models import Produit
 
 class ProduitForm(forms.ModelForm):
     class Meta:
@@ -107,7 +112,8 @@ class ProduitForm(forms.ModelForm):
     def clean_nom(self):
         nom = self.cleaned_data.get("nom")
         if len(nom) < 3:
-            raise forms.ValidationError("Le nom du produit doit contenir au moins 3 caractères.")
+            raise forms.ValidationError(
+                "Le nom du produit doit contenir au moins 3 caractères.")
         return nom.capitalize()  # Met la première lettre en majuscule
 
     # Validation du champ prix
@@ -119,8 +125,6 @@ class ProduitForm(forms.ModelForm):
 
 
 # forms.py
-from django import forms
-from .models import Commande, CommandeItem, Client, Produit
 
 
 class CommandeForm(forms.ModelForm):
@@ -143,7 +147,6 @@ class CommandeItemForm(forms.ModelForm):
             "prix_unitaire": forms.NumberInput(attrs={"class": "form-control", "readonly": "readonly"}),
         }
 
-from django.forms import inlineformset_factory
 
 CommandeItemFormSet = inlineformset_factory(
     Commande,
@@ -156,8 +159,6 @@ CommandeItemFormSet = inlineformset_factory(
 
 # forms.py
 
-from django import forms
-from .models import RemiseClient
 
 class RemiseForm(forms.ModelForm):
     class Meta:
@@ -171,31 +172,26 @@ class RemiseForm(forms.ModelForm):
                 'min': '0'
             }),
         }
-    
+
     def clean_valeur_remise(self):
         type_remise = self.cleaned_data.get('type_remise')
         valeur_remise = self.cleaned_data.get('valeur_remise')
-        
+
         if type_remise == 'pourcentage' and (valeur_remise < 0 or valeur_remise > 100):
-            raise forms.ValidationError("Le pourcentage doit être entre 0 et 100")
-        
+            raise forms.ValidationError(
+                "Le pourcentage doit être entre 0 et 100")
+
         if type_remise == 'fixe' and valeur_remise < 0:
             raise forms.ValidationError("Le montant ne peut pas être négatif")
-        
+
         return valeur_remise
 
-
-
-
-
-from django import forms
-from .models import ParametresMounia
-from django.core.validators import FileExtensionValidator
 
 class ParametresForm(forms.ModelForm):
     class Meta:
         model = ParametresMounia
-        fields = ['nom_hotel', 'logo', 'adresse', 'telephone_contact', 'email_contact']
+        fields = ['nom_hotel', 'logo', 'adresse',
+                  'telephone_contact', 'email_contact']
         widgets = {
             'nom_hotel': forms.TextInput(attrs={'class': 'form-control'}),
             'adresse': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
@@ -206,92 +202,38 @@ class ParametresForm(forms.ModelForm):
             'nom_hotel': "Nom de l'établissement",
             'logo': "Logo (format PNG/JPG, max 500KB)",
         }
-    
+
     logo = forms.ImageField(
         required=False,
         widget=forms.FileInput(attrs={'class': 'form-control'}),
         validators=[FileExtensionValidator(['png', 'jpg', 'jpeg', 'svg'])]
     )
-    
-    
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-from django import forms
-from django.contrib.auth.models import User
-from django.contrib.auth.forms import UserCreationForm
 
 class CustomUserCreationForm(UserCreationForm):
-    email = forms.EmailField(required=True, help_text="Entrez une adresse email valide.")
+    email = forms.EmailField(
+        required=True, help_text="Entrez une adresse email valide.")
 
     class Meta:
         model = User
         fields = ['username', 'email', 'password1', 'password2']
 
-from django import forms
-from django.contrib.auth.forms import AuthenticationForm
-from django.contrib.auth.models import User
 
 class CustomLoginForm(AuthenticationForm):
     username = forms.CharField(
         label='Nom d\'utilisateur',
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nom d\'utilisateur'}),
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'Nom d\'utilisateur'}),
     )
     password = forms.CharField(
         label='Mot de passe',
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Mot de passe'}),
+        widget=forms.PasswordInput(
+            attrs={'class': 'form-control', 'placeholder': 'Mot de passe'}),
     )
 
     class Meta:
         model = User
         fields = ['username', 'password']
-
-
-
-
-
-from django import forms
-from django.contrib.auth.models import User
 
 
 class UserUpdateForm(forms.ModelForm):
