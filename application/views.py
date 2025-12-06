@@ -1640,7 +1640,7 @@ def facture_client_mois_pdf(request):
                 _format_money(commande.total)
             ])
 
-        recap_data.append(["", "", "TOTAL PRODUITS:", "",
+        recap_data.append(["", "", "TOTAL PRODUITS SANS REMISE:", "",
                           _format_money(total_produits_sans_remise)])
 
         if remise_appliquee > 0:
