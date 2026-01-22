@@ -47,7 +47,7 @@
                 <form method="get" action="{% url 'liste_factures' %}">
                     <div class="row">
                         <!-- Filtre par client -->
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <div class="form-group">
                                 <label for="client" class="form-label fw-bold">Client :</label>
                                 <select name="client" id="client" class="form-control" required>
@@ -63,7 +63,7 @@
                         </div>
                         
                         <!-- Filtre par mois -->
-                        <div class="col-md-5">
+                        <div class="col-md-3">
                             <div class="form-group">
                                 <label for="mois" class="form-label fw-bold">Mois :</label>
                                 <select name="mois" id="mois" class="form-control" required>
@@ -75,6 +75,19 @@
                                     </option>
                                     {% endfor %}
                                 </select>
+                            </div>
+                        </div>
+                        
+                        <!-- NOUVEAU : Date de la facture -->
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="date_facture" class="form-label fw-bold">Date de la facture :</label>
+                                <input type="date" 
+                                       name="date_facture" 
+                                       id="date_facture" 
+                                       class="form-control" 
+                                       value="{% if date_facture_selected %}{{ date_facture_selected|date:'Y-m-d' }}{% else %}{% now 'Y-m-d' %}{% endif %}">
+                                <small class="form-text text-muted">La date qui apparaîtra sur la facture</small>
                             </div>
                         </div>
                         
@@ -94,9 +107,7 @@
             </div>
         </div>
 
-        <!-- ========================================= -->
-        <!-- NOUVELLE SECTION AVEC RÉDUCTIONS INTÉGRÉE -->
-        <!-- ========================================= -->
+        <!-- Section avec réductions -->
         {% if client_selected and mois_selected %}
         <div class="alert alert-success">
             <div class="row align-items-center">
@@ -108,6 +119,9 @@
                     </h5>
                     <p class="mb-0">
                         {{ commandes|length }} commande(s) trouvée(s)
+                    </p>
+                    <p class="mb-0">
+                        <strong>Date de facture :</strong> {{ date_facture_selected|date:"d/m/Y" }}
                     </p>
                     <div class="mt-2">
                         <table class="table table-sm table-borderless mb-0">
@@ -129,7 +143,8 @@
                     </div>
                 </div>
                 <div class="col-md-4 text-end">
-                    <a href="{% url 'facture_client_mois_pdf' %}?client={{ client_selected.id }}&mois={{ mois_selected }}" 
+                    <!-- MODIFIER : Ajouter la date_facture dans l'URL -->
+                    <a href="{% url 'facture_client_mois_pdf' %}?client={{ client_selected.id }}&mois={{ mois_selected }}&date_facture={{ date_facture_selected|date:'Y-m-d' }}" 
                        class="btn btn-danger btn-lg mb-2">
                         <i class="bi bi-file-earmark-pdf"></i> Générer la Facture PDF
                     </a>
@@ -279,7 +294,7 @@ document.addEventListener('DOMContentLoaded', function() {
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json'
             },
-            order: [[1, 'desc']], // Tri par date décroissante
+            order: [[1, 'desc']],
             responsive: true,
             dom: '<"top"f>rt<"bottom"lip><"clear">'
         });
@@ -296,6 +311,13 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Veuillez sélectionner un client et un mois.');
         }
     });
+    
+    // Définir la date par défaut d'aujourd'hui si vide
+    const dateInput = document.getElementById('date_facture');
+    if (dateInput && !dateInput.value) {
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.value = today;
+    }
 });
 </script>
 

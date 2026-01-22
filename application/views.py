@@ -1349,6 +1349,7 @@ def liste_factures(request):
     # Récupérer les paramètres de filtrage
     client_id = request.GET.get('client')
     mois_filtre = request.GET.get('mois')  # Format: YYYY-MM
+    date_facture_custom = request.GET.get('date_facture')  # Nouveau paramètre
 
     commandes = Commande.objects.all().order_by('-date_commande')
     clients = Client.objects.all().order_by('nom')
@@ -1356,10 +1357,11 @@ def liste_factures(request):
     # Variables pour suivre les filtres appliqués
     client_selected = None
     mois_selected = None
+    date_facture_selected = None  # Nouvelle variable
     total_mois = Decimal('0.00')
     remise_appliquee = Decimal('0.00')
     total_apres_remise = Decimal('0.00')
-    mois_obj = None  # ✅ Initialiser à None pour éviter l'erreur
+    mois_obj = None
 
     # Filtre par client
     if client_id:
@@ -1372,23 +1374,33 @@ def liste_factures(request):
     # Filtre par mois
     if mois_filtre:
         try:
-            # Convertir YYYY-MM en année et mois
             annee, mois = map(int, mois_filtre.split('-'))
             commandes = commandes.filter(
                 date_commande__year=annee,
                 date_commande__month=mois
             )
             mois_selected = mois_filtre
-            # ✅ CORRECTION : Utiliser datetime.datetime pour créer l'objet
             mois_obj = datetime(annee, mois, 1)
         except (ValueError, TypeError):
             pass
+
+    # Récupérer la date de facture personnalisée
+    if date_facture_custom:
+        try:
+            # Valider le format de date
+            date_facture_selected = datetime.strptime(
+                date_facture_custom, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            # Si la date est invalide, utiliser la date du jour
+            date_facture_selected = timezone.now().date()
+    else:
+        # Par défaut, date du jour
+        date_facture_selected = timezone.now().date()
 
     # Calculer le total du mois pour les commandes filtrées
     if client_selected and mois_selected:
         total_mois = sum(commande.total for commande in commandes)
 
-        # Récupérer la remise applicable pour ce client ce mois-ci
         try:
             remise = RemiseClient.objects.get(
                 client=client_selected,
@@ -1400,27 +1412,22 @@ def liste_factures(request):
             else:
                 remise_appliquee = remise.valeur_remise
 
-            # La remise ne peut pas dépasser le total
             remise_appliquee = min(remise_appliquee, total_mois)
             total_apres_remise = total_mois - remise_appliquee
 
         except RemiseClient.DoesNotExist:
-            # Aucune remise trouvée, les totaux restent identiques
             total_apres_remise = total_mois
             remise_appliquee = Decimal('0.00')
 
-    # Préparer les mois disponibles pour le filtre (12 derniers mois)
+    # Préparer les mois disponibles
     aujourd_hui = timezone.now()
     mois_disponibles = []
     for i in range(12):
-        # ✅ CORRECTION : Utiliser timedelta correctement
         date_mois = aujourd_hui - timedelta(days=30*i)
         mois_disponibles.append({
             'value': date_mois.strftime('%Y-%m'),
             'label': date_mois.strftime('%B %Y').capitalize()
         })
-
-    # Inverser l'ordre pour avoir les mois les plus récents en premier
     mois_disponibles.reverse()
 
     context = {
@@ -1429,7 +1436,8 @@ def liste_factures(request):
         'mois_disponibles': mois_disponibles,
         'client_selected': client_selected,
         'mois_selected': mois_selected,
-        'mois_obj': mois_obj,  # ✅ Peut être None mais c'est OK
+        'date_facture_selected': date_facture_selected,  # Nouveau
+        'mois_obj': mois_obj,
         'total_mois': total_mois,
         'remise_appliquee': remise_appliquee,
         'total_apres_remise': total_apres_remise,
@@ -1500,10 +1508,11 @@ def appliquer_remise(request, client_id, mois_filtre):
 
 
 def facture_client_mois_pdf(request):
-    """Génère une facture mensuelle pour un client spécifique"""
+    """Génère une facture mensuelle pour un client spécifique avec date personnalisable"""
 
     client_id = request.GET.get("client")
     mois_filtre = request.GET.get("mois")
+    date_facture_param = request.GET.get("date_facture")  # Nouveau paramètre
 
     if not client_id or not mois_filtre:
         return HttpResponse("Paramètres manquants: client et mois requis")
@@ -1518,7 +1527,7 @@ def facture_client_mois_pdf(request):
             date_commande__month=mois
         ).order_by('date_commande')
 
-        # Calcul des totaux avec gestion des valeurs None
+        # Calcul des totaux
         total_produits_sans_remise = sum(
             commande.total_sans_livraison or Decimal('0.00')
             for commande in commandes
@@ -1553,6 +1562,19 @@ def facture_client_mois_pdf(request):
     except (Client.DoesNotExist, ValueError):
         return HttpResponse("Client ou mois invalide")
 
+    # DÉTERMINER LA DATE DE LA FACTURE
+    if date_facture_param:
+        try:
+            # Utiliser la date personnalisée fournie
+            date_facture = datetime.strptime(
+                date_facture_param, '%Y-%m-%d').date()
+        except ValueError:
+            # Si format invalide, utiliser la date du jour
+            date_facture = timezone.now().date()
+    else:
+        # Par défaut, date du jour
+        date_facture = timezone.now().date()
+
     # Création du PDF
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
@@ -1569,8 +1591,6 @@ def facture_client_mois_pdf(request):
         name='Small', parent=styles['Normal'], fontSize=8, leading=10))
     styles.add(ParagraphStyle(name='SmallBold',
                parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold'))
-
-    # ✅ Style Total réduit
     styles.add(ParagraphStyle(name='TotalStyle',
                parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER))
 
@@ -1588,7 +1608,6 @@ def facture_client_mois_pdf(request):
             "Tél: +212 702-704-420 • Email: mounia.majid97@gmail.com", styles['Small']),
     ]
 
-    # ✅ LIGNE CORRIGÉE : Utilisation correcte de datetime
     mois_nom = datetime(annee, mois, 1).strftime("%B %Y").capitalize()
 
     infos_client = [
@@ -1598,12 +1617,13 @@ def facture_client_mois_pdf(request):
         Paragraph(f"<b>Ville:</b> {client.ville}", styles['Small']),
     ]
 
+    # ✅ CORRECT : Utiliser la date personnalisée
     infos_facture = [
         Paragraph("<b>FACTURE MENSUELLE</b>", styles['Heading2']),
         Paragraph(f"<b>Période:</b> {mois_nom}", styles['Small']),
-        # ✅ CORRECT : datetime.now() fonctionne maintenant
+        # Date personnalisée
         Paragraph(
-            f"<b>Date:</b> {datetime.now().strftime('%d/%m/%Y')}", styles['Small']),
+            f"<b>Date:</b> {date_facture.strftime('%d/%m/%Y')}", styles['Small']),
         Paragraph(
             f"<b>Réf:</b> {client.id}-{annee}{mois:02d}", styles['Small']),
         Paragraph(f"<b>Commandes:</b> {commandes.count()}", styles['Small']),
@@ -1652,7 +1672,6 @@ def facture_client_mois_pdf(request):
         recap_data.append(["", "", f"FRAIS LIVRAISON ({nombre_livraisons} livraisons):", "", _format_money(
             frais_livraison_total)])
 
-        # ✅ LIGNE TOTAL À PAYER RÉDUITE
         recap_data.append([
             Paragraph(
                 f"<b>TOTAL À PAYER : {_format_money(total_apres_remise)} MAD/TTC</b>", styles['TotalStyle']),
@@ -1662,33 +1681,22 @@ def facture_client_mois_pdf(request):
         recap_table = Table(recap_data, colWidths=[
                             1.2*inch, 1.0*inch, 2.0*inch, 1.0*inch, 1.0*inch])
 
-        # Style du tableau avec taille réduite pour le total
         recap_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -2), 0.5, colors.black),
             ('FONTNAME', (0, 0), (-1, -2), 'Times-Roman'),
             ('FONTSIZE', (0, 0), (-1, -2), 9),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('ALIGN', (2, 1), (4, -2), 'RIGHT'),
-
-            # En-tête
             ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
             ('BACKGROUND', (0, 0), (-1, 0), colors.black),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-
-            # Bloc des totaux
             ('FONTNAME', (2, -4), (-1, -2), 'Times-Bold'),
-
-            # Ligne avant total final
             ('LINEABOVE', (0, -1), (-1, -1), 2, colors.black),
-
-            # Fusion et centrage
             ('SPAN', (0, -1), (-1, -1)),
             ('ALIGN', (0, -1), (-1, -1), 'CENTER'),
-
-            # ✅ TAILLE RÉDUITE pour le total
-            ('FONTSIZE', (0, -1), (-1, -1), 14),  # Réduit de 20 à 14
-            ('BOTTOMPADDING', (0, -1), (-1, -1), 8),  # Réduit de 14 à 8
-            ('TOPPADDING', (0, -1), (-1, -1), 8),   # Réduit de 14 à 8
+            ('FONTSIZE', (0, -1), (-1, -1), 14),
+            ('BOTTOMPADDING', (0, -1), (-1, -1), 8),
+            ('TOPPADDING', (0, -1), (-1, -1), 8),
             ('BOX', (0, -1), (-1, -1), 2, colors.black),
         ]))
 
@@ -1709,7 +1717,8 @@ def facture_client_mois_pdf(request):
     doc.build(elements)
     buffer.seek(0)
 
-    filename = f"Facture_{client.nom}_{annee}_{mois:02d}.pdf".replace(" ", "_")
+    filename = f"Facture_{client.nom}_{annee}_{mois:02d}_{date_facture.strftime('%d%m%Y')}.pdf".replace(
+        " ", "_")
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
