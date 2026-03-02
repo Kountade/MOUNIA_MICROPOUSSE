@@ -1,3 +1,5 @@
+# ← IMPORTANT: Ajouter cet import
+from dateutil.relativedelta import relativedelta
 from django.conf.urls import handler404
 from .forms import RemiseForm
 from .models import Client, Commande, RemiseClient
@@ -1419,16 +1421,24 @@ def liste_factures(request):
             total_apres_remise = total_mois
             remise_appliquee = Decimal('0.00')
 
-    # Préparer les mois disponibles
-    aujourd_hui = timezone.now()
+    # ===== CODE CORRIGÉ POUR LES MOIS DISPONIBLES =====
+    # Version avec relativedelta (la plus propre)
+    aujourd_hui = timezone.now().date()
     mois_disponibles = []
-    for i in range(12):
-        date_mois = aujourd_hui - timedelta(days=30*i)
+
+    # On part du premier jour du mois actuel
+    premier_du_mois = aujourd_hui.replace(day=1)
+
+    # Générer les 12 derniers mois
+    for i in range(11, -1, -1):  # De -11 à 0 pour avoir l'ordre chronologique
+        # Reculer mois par mois (pas par 30 jours)
+        date_mois = premier_du_mois - relativedelta(months=i)
+
         mois_disponibles.append({
             'value': date_mois.strftime('%Y-%m'),
             'label': date_mois.strftime('%B %Y').capitalize()
         })
-    mois_disponibles.reverse()
+    # ===== FIN DU CODE CORRIGÉ =====
 
     context = {
         'commandes': commandes,
