@@ -37,8 +37,10 @@ SECRET_KEY = "django-insecure-1=(!k99p8!%&^b&zagsh^aetfl^9y(u)g#^_)h1lyi8$^h2kiu
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['mounia-micropousse.onrender.com', 'localhost', '127.0.0.1']
-CSRF_TRUSTED_ORIGINS = ['https://mounia-micropousse.onrender.com']
+ALLOWED_HOSTS = ['mounia-micropousse.onrender.com',
+                 'mounia-micropousse-zwmu.onrender.com', 'localhost', '127.0.0.1']
+CSRF_TRUSTED_ORIGINS = ['https://mounia-micropousse.onrender.com',
+                        'https://mounia-micropousse-zwmu.onrender.com']
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definitionss
